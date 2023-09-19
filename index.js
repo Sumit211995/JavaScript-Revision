@@ -61,13 +61,37 @@
 // fizzBuzz();
 
 /*WhosPaying*/
-function whosPaying(names){
-    var noOfPerson = names.length;
-    var randomPersonPosition = Math.floor(Math.random()*noOfPerson);
-    var randomPerson = names[randomPersonPosition];
-    return randomPerson + " is going to buy dinner today!";
-}
+// function whosPaying(names){
+//     var noOfPerson = names.length;
+//     var randomPersonPosition = Math.floor(Math.random()*noOfPerson);
+//     var randomPerson = names[randomPersonPosition];
+//     return randomPerson + " is going to buy dinner today!";
+// }
 
-var names = ["ABC", "XYZ", "JKL", "MNO", "STU"];
-randomPerson = whosPaying(names);
-console.log(randomPerson);
+// var names = ["ABC", "XYZ", "JKL", "MNO", "STU"];
+// randomPerson = whosPaying(names);
+// console.log(randomPerson);
+ 
+/*String Methods*/
+var s1 = "  Hello there I am here!";
+var slc = s1.slice(6);
+var tr = s1.trim();
+var upparCase = s1.toUpperCase();
+var lowerCase = s1.toLowerCase();
+var index = s1.intexOf("I");
+var repl = s1.replace("H" , "C");
+
+/*Template Literals:*/
+var qty = 10;
+var product ="Book";
+var price = 300;
+
+var message = "You bought " + qty + " " + product + ". Total is: " + price * qty ; 
+var literalMsg = `You bought ${qty} ${product}. Total is: ${price * qty}`;
+
+/*Math Object*/
+Math.PI();
+Math.round();
+Math.abs();
+Math.floor();
+Math.pow();
