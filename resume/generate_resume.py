@@ -43,10 +43,11 @@ SKILLS = [
 EMMVEE_BULLETS = [
     "Owned frontend for five production apps in React.js, Next.js, and TypeScript: Prism (solar shop floor), warranty and claims, Board Meeting and Committee (BMC), Roamiyo travel admin, and the Emmvee Foundation website.",
     "Built Prism dashboards with RBAC for QA, Production, PPC, Admin, Super Admin, and Manager, including line and module reports.",
-    "Developed the React.js warranty portal with Zustand authentication for 15+ roles. Covered invoice and PSN transfer, claim intake, QA assignment, refund, replacement, and rework tickets, multi-level approvals, and certificate download.",
+    "Developed the React.js warranty portal with Zustand authentication for 15+ roles (homeowner, distributor, CSR, QA, Finance, Sales, and others). Covered invoice and PSN transfer, claim intake, QA assignment, refund, replacement, and rework tickets, multi-level approvals, and certificate download.",
     "Implemented BMC in Next.js, Tailwind CSS, and SCSS for Microsoft Teams-connected meetings: create, approve, cancel, reject, agendas, attendance, action items, AI-generated minutes of meeting (MOM), documents, and user management. Backend used Microsoft Graph API.",
     "Built the Roamiyo admin dashboard in Next.js (customers, flights, stays, transactions, tickets, itineraries, charts) and contributed to the production RoamWithRoamiyo web app using Redux, Azure Functions, and Next.js.",
-    "Delivered the Foundation website with Next.js, Payload CMS, and PostgreSQL. Deployed Foundation and BMC on Railway; deployed Prism and Warranty on a Linux VM. Sole frontend owner on most products; guided 2-3 frontend developers on selected work.",
+    "Delivered the Foundation website with Next.js, Payload CMS, and PostgreSQL, including customized admin CSS. Deployed Foundation and BMC on Railway; deployed Prism and Warranty on a Linux VM.",
+    "Acted as sole frontend owner on most products and guided 2-3 frontend developers on selected projects.",
 ]
 
 TRIFLER_BULLETS = [
@@ -95,7 +96,7 @@ def tight_paragraph(doc, space_before=0, space_after=0):
 
 
 def heading_para(doc, text):
-    p = tight_paragraph(doc, space_before=4, space_after=1)
+    p = tight_paragraph(doc, space_before=4, space_after=2)
     run = p.add_run(text.upper())
     set_run_font(run, size=10.5, bold=True, color=NAVY)
     add_bottom_border(p)
@@ -107,15 +108,15 @@ def bullet(doc, text):
     p.paragraph_format.left_indent = Inches(0.16)
     p.paragraph_format.first_line_indent = Inches(-0.13)
     run = p.add_run("- " + text)
-    set_run_font(run, size=9)
+    set_run_font(run, size=10)
     return p
 
 
 def job_header(doc, left, right):
-    p = tight_paragraph(doc, space_before=4, space_after=0)
+    p = tight_paragraph(doc, space_before=3, space_after=0)
     set_run_font(p.add_run(left), size=10, bold=True)
     set_run_font(p.add_run("\t" + right), size=9.5)
-    p.paragraph_format.tab_stops.add_tab_stop(Inches(7.7), WD_TAB_ALIGNMENT.RIGHT)
+    p.paragraph_format.tab_stops.add_tab_stop(Inches(7.15), WD_TAB_ALIGNMENT.RIGHT)
     return p
 
 
@@ -123,7 +124,7 @@ def job_sub(doc, left, right):
     p = tight_paragraph(doc, space_before=0, space_after=1)
     set_run_font(p.add_run(left), size=9.5, color=MUTED)
     set_run_font(p.add_run("\t" + right), size=9.5, color=MUTED)
-    p.paragraph_format.tab_stops.add_tab_stop(Inches(7.7), WD_TAB_ALIGNMENT.RIGHT)
+    p.paragraph_format.tab_stops.add_tab_stop(Inches(7.15), WD_TAB_ALIGNMENT.RIGHT)
     return p
 
 
@@ -137,12 +138,12 @@ def build_docx(path):
     normal.paragraph_format.line_spacing = 1.0
 
     for section in doc.sections:
-        section.top_margin = Inches(0.38)
-        section.bottom_margin = Inches(0.32)
-        section.left_margin = Inches(0.48)
-        section.right_margin = Inches(0.48)
-        section.page_width = Inches(8.5)
-        section.page_height = Inches(11)
+        section.top_margin = Inches(0.5)
+        section.bottom_margin = Inches(0.45)
+        section.left_margin = Inches(0.55)
+        section.right_margin = Inches(0.55)
+        section.page_width = Inches(8.27)
+        section.page_height = Inches(11.69)
         section.different_first_page_header_footer = False
 
     name = tight_paragraph(doc, 0, 0)
@@ -155,7 +156,7 @@ def build_docx(path):
         contact.add_run(
             "Bengaluru, Karnataka, India  |  +91-9997776729  |  sumitcskaktwan@gmail.com"
         ),
-        size=9.5,
+        size=10,
     )
     contact2 = tight_paragraph(doc, 0, 1)
     contact2.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -163,18 +164,18 @@ def build_docx(path):
         contact2.add_run(
             "https://www.linkedin.com/in/sumit-kaktwan-270633157  |  https://github.com/Sumit211995"
         ),
-        size=9,
+        size=10,
     )
 
     heading_para(doc, "Professional Summary")
     s = tight_paragraph(doc, 1, 1)
-    set_run_font(s.add_run(SUMMARY), size=9.5)
+    set_run_font(s.add_run(SUMMARY), size=10)
 
     heading_para(doc, "Technical Skills")
     for label, rest in SKILLS:
-        p = tight_paragraph(doc, 0, 1)
-        set_run_font(p.add_run(label), size=9.5, bold=True)
-        set_run_font(p.add_run(rest), size=9.5)
+        p = tight_paragraph(doc, 1, 1)
+        set_run_font(p.add_run(label), size=10, bold=True)
+        set_run_font(p.add_run(rest), size=10)
 
     heading_para(doc, "Professional Experience")
     job_header(doc, "Emmvee Technology Pvt. Ltd. (Emmvee Photovoltaic)", "Bengaluru, India")
@@ -208,7 +209,7 @@ def build_docx(path):
 
     heading_para(doc, "Certifications")
     p = tight_paragraph(doc, 1, 0)
-    set_run_font(p.add_run(CERTS), size=9.5)
+    set_run_font(p.add_run(CERTS), size=10)
 
     doc.save(path)
 
@@ -224,52 +225,52 @@ class ResumePDF(FPDF):
 
 
 def pdf_section(pdf, title):
-    pdf.ln(1.8)
-    pdf.set_font("DejaVu", "B", 10)
+    pdf.ln(3.0)
+    pdf.set_font("DejaVu", "B", 11)
     pdf.set_text_color(*NAVY)
-    pdf.cell(0, 4.8, title.upper(), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 5.5, title.upper(), new_x="LMARGIN", new_y="NEXT")
     y = pdf.get_y()
     pdf.set_draw_color(*NAVY)
-    pdf.set_line_width(0.35)
-    pdf.line(10, y, 200, y)
-    pdf.ln(1.3)
+    pdf.set_line_width(0.4)
+    pdf.line(12, y, 198, y)
+    pdf.ln(2.0)
     pdf.set_text_color(*BODY)
 
 
 def pdf_job(pdf, company, loc, title, dates):
-    pdf.set_font("DejaVu", "B", 9.5)
+    pdf.set_font("DejaVu", "B", 10)
     pdf.set_text_color(*BODY)
-    pdf.cell(128, 4.2, company, align="L")
-    pdf.set_font("DejaVu", "", 9)
-    pdf.cell(0, 4.2, loc, align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(125, 4.6, company, align="L")
+    pdf.set_font("DejaVu", "", 9.5)
+    pdf.cell(0, 4.6, loc, align="R", new_x="LMARGIN", new_y="NEXT")
     pdf.set_text_color(*MUTED)
-    pdf.cell(118, 4.2, title, align="L")
-    pdf.cell(0, 4.2, dates, align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(115, 4.6, title, align="L")
+    pdf.cell(0, 4.6, dates, align="R", new_x="LMARGIN", new_y="NEXT")
     pdf.set_text_color(*BODY)
 
 
 def pdf_bullet(pdf, text):
-    pdf.set_font("DejaVu", "", 9)
-    pdf.set_x(12)
-    pdf.multi_cell(186, 3.85, "- " + text)
-    pdf.ln(0.15)
+    pdf.set_font("DejaVu", "", 9.5)
+    pdf.set_x(14)
+    pdf.multi_cell(182, 4.25, "- " + text)
+    pdf.ln(0.65)
 
 
 def build_pdf(path):
-    pdf = ResumePDF(format="Letter", unit="mm")
-    pdf.set_auto_page_break(auto=True, margin=10)
+    pdf = ResumePDF(format="A4", unit="mm")
+    pdf.set_auto_page_break(auto=True, margin=14)
     pdf.add_page()
-    pdf.set_margins(10, 8, 10)
+    pdf.set_margins(12, 14, 12)
 
-    pdf.set_font("DejaVu", "B", 16)
+    pdf.set_font("DejaVu", "B", 18)
     pdf.set_text_color(*NAVY)
-    pdf.cell(0, 7, "SUMIT KAKTWAN", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 9, "SUMIT KAKTWAN", align="C", new_x="LMARGIN", new_y="NEXT")
 
-    pdf.set_font("DejaVu", "", 9)
+    pdf.set_font("DejaVu", "", 9.5)
     pdf.set_text_color(*BODY)
     pdf.cell(
         0,
-        4.2,
+        5,
         "Bengaluru, Karnataka, India  |  +91-9997776729  |  sumitcskaktwan@gmail.com",
         align="C",
         new_x="LMARGIN",
@@ -277,7 +278,7 @@ def build_pdf(path):
     )
     pdf.cell(
         0,
-        4.2,
+        5,
         "https://www.linkedin.com/in/sumit-kaktwan-270633157  |  https://github.com/Sumit211995",
         align="C",
         new_x="LMARGIN",
@@ -285,16 +286,16 @@ def build_pdf(path):
     )
 
     pdf_section(pdf, "Professional Summary")
-    pdf.set_font("DejaVu", "", 9)
-    pdf.multi_cell(0, 3.9, SUMMARY)
+    pdf.set_font("DejaVu", "", 9.5)
+    pdf.multi_cell(0, 4.2, SUMMARY)
 
     pdf_section(pdf, "Technical Skills")
     for label, rest in SKILLS:
-        pdf.set_font("DejaVu", "B", 9)
-        pdf.write(3.9, label)
-        pdf.set_font("DejaVu", "", 9)
-        pdf.write(3.9, rest)
-        pdf.ln(4.2)
+        pdf.set_font("DejaVu", "B", 9.5)
+        pdf.write(4.2, label)
+        pdf.set_font("DejaVu", "", 9.5)
+        pdf.write(4.2, rest)
+        pdf.ln(5.1)
 
     pdf_section(pdf, "Professional Experience")
     pdf_job(
@@ -339,8 +340,8 @@ def build_pdf(path):
     )
 
     pdf_section(pdf, "Certifications")
-    pdf.set_font("DejaVu", "", 9)
-    pdf.multi_cell(0, 3.9, CERTS)
+    pdf.set_font("DejaVu", "", 9.5)
+    pdf.multi_cell(0, 4.2, CERTS)
 
     pdf.output(path)
 
