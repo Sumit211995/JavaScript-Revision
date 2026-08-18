@@ -144,7 +144,7 @@ def build_docx(path):
     heading_para(doc, "Experience")
 
     job_header(doc, "Emmvee Technology Pvt. Ltd. (Emmvee Photovoltaic)", "Bengaluru, India")
-    job_sub(doc, "Frontend Engineer", "Sep 2025 – Present")
+    job_sub(doc, "Frontend Engineer", "15 Sep 2025 – Present")
     for t in [
         "Owned frontend delivery for five production applications (React.js / Next.js / TypeScript): solar shop-floor (Prism), warranty & claims, Board Meeting & Committee (BMC), Roamiyo travel admin, and the Emmvee Foundation website.",
         "Prism (solar production): role-based login and dashboards for QA, Production, PPC, Admin, Super Admin, and Manager—line and module reports tailored to each role.",
@@ -157,7 +157,7 @@ def build_docx(path):
         bullet(doc, t)
 
     job_header(doc, "Trifler India (Aquonics Tech Service Pvt. Ltd.)", "Bengaluru, India")
-    job_sub(doc, "Frontend Developer", "Oct 2023 – Aug 2025")
+    job_sub(doc, "Frontend Developer", "Oct 2023 – 12 Sep 2025")
     for t in [
         "Built a multi-step partner onboarding dashboard with React Hook Form, Zod validation, token-based auth, Google Maps location, and Firebase event logging.",
         "Developed a Next.js and TypeScript admin dashboard for user/partner management and a blog CMS.",
@@ -297,7 +297,7 @@ def build_pdf(path):
         "Emmvee Technology Pvt. Ltd. (Emmvee Photovoltaic)",
         "Bengaluru, India",
         "Frontend Engineer",
-        "Sep 2025 – Present",
+        "15 Sep 2025 – Present",
     )
     for t in [
         "Owned frontend delivery for five production applications (React.js / Next.js / TypeScript): solar shop-floor (Prism), warranty & claims, Board Meeting & Committee (BMC), Roamiyo travel admin, and the Emmvee Foundation website.",
@@ -315,7 +315,7 @@ def build_pdf(path):
         "Trifler India (Aquonics Tech Service Pvt. Ltd.)",
         "Bengaluru, India",
         "Frontend Developer",
-        "Oct 2023 – Aug 2025",
+        "Oct 2023 – 12 Sep 2025",
     )
     for t in [
         "Built a multi-step partner onboarding dashboard with React Hook Form, Zod validation, token-based auth, Google Maps location, and Firebase event logging.",
