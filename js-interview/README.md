@@ -2,7 +2,10 @@
 
 Order we will follow. Do not skip ahead until the exercise for that lesson is done.
 
-1. Values, types, `let` / `const` / `var`
+**Current lesson:** [01 — Values, types, declarations](lessons/01-values-types-and-declarations.md)  
+**Exercise:** `node js-interview/exercises/01-values-types-declarations.js`
+
+1. Values, types, `let` / `const` / `var` — [lesson](lessons/01-values-types-and-declarations.md)
 2. Operators, coercion, `==` vs `===`
 3. Functions, parameters, `this` (intro)
 4. Scope, hoisting, closures
