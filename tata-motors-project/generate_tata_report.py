@@ -12,6 +12,14 @@ from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 from fpdf import FPDF
 
+from create_brand_assets import (
+    cover_premium,
+    detailed_history,
+    internship_infographic,
+    product_showcase,
+    tata_logo,
+)
+
 ROOT = Path(__file__).resolve().parent
 IMG = ROOT / "images"
 OUT = ROOT / "output"
@@ -64,6 +72,21 @@ def add_bullets(doc: Document, items: list[str]):
             set_run_font(run, size=11)
 
 
+def shade_table_header(table, hex_color: str = "003366"):
+    from docx.oxml import OxmlElement
+
+    for cell in table.rows[0].cells:
+        tc = cell._tc
+        tc_pr = tc.get_or_add_tcPr()
+        shd = OxmlElement("w:shd")
+        shd.set(qn("w:fill"), hex_color)
+        tc_pr.append(shd)
+        for p in cell.paragraphs:
+            for run in p.runs:
+                run.font.color.rgb = RGBColor(255, 255, 255)
+                run.bold = True
+
+
 def add_image(doc: Document, name: str, width_in: float = 6.0, caption: str | None = None):
     path = IMG / name
     if path.exists():
@@ -86,7 +109,8 @@ def build_docx() -> Path:
     section.right_margin = Inches(1)
 
     # Cover
-    add_image(doc, "cover_banner.png", width_in=6.5)
+    add_image(doc, "cover_premium.png", width_in=6.8)
+    add_image(doc, "tata_logo_brand.png", width_in=3.2)
     doc.add_paragraph()
     t = doc.add_paragraph()
     t.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -159,6 +183,24 @@ def build_docx() -> Path:
 
     doc.add_page_break()
 
+    add_heading(doc, "Executive Summary", 1)
+    add_body(
+        doc,
+        "Tata Motors Limited is India's flagship automotive company under the Tata Group, with leadership "
+        "in commercial vehicles, a top-three position in passenger vehicles, and dominant market share in "
+        "passenger electric vehicles. This report presents a structured study of the company's history, "
+        "business segments, product portfolio, manufacturing methodologies, research areas, and future "
+        "opportunities—prepared to support a diploma internship application in Electronics and Communication "
+        "Engineering.\n\n"
+        "Public disclosures for FY2024–25 highlight milestones such as 6 million cumulative passenger vehicle "
+        "sales, 200,000+ cumulative EV sales, expansion at Sanand, and groundwork for a new Tamil Nadu "
+        "manufacturing facility. The company's multi-powertrain strategy (petrol, diesel, CNG, electric, and "
+        "alternate fuels including hydrogen ICE trucks) aligns with India's mobility and sustainability goals. "
+        "For ECE students, Tata Motors offers exposure to vehicle electronics, wiring harnesses, ECUs, battery "
+        "management, production testing, and plant safety systems—making it a strong choice for industrial training.",
+    )
+    add_image(doc, "internship_value.png", 5.8, "Figure A: Value of internship at Tata Motors for diploma students")
+
     add_heading(doc, "1. Introduction", 1)
     add_body(
         doc,
@@ -213,6 +255,7 @@ def build_docx() -> Path:
     for i, (a, b) in enumerate(rows):
         table.rows[i].cells[0].text = a
         table.rows[i].cells[1].text = b
+    shade_table_header(table)
 
     add_heading(doc, "3. Company Overview", 1)
     add_body(
@@ -276,17 +319,50 @@ def build_docx() -> Path:
     )
 
     add_heading(doc, "4. History and Development of Tata Motors", 1)
-    add_image(doc, "history_timeline.png", 6.2, "Figure 4: Key milestones in Tata Motors history")
+    add_image(doc, "history_timeline.png", 6.0, "Figure 4: Key milestones (overview)")
+    add_image(doc, "history_detailed.png", 6.2, "Figure 5: Detailed historical timeline (1945–2025)")
+
+    add_heading(doc, "4.1 Early foundation: 1945", 2)
     add_body(
         doc,
-        "1945 — Tata Engineering and Locomotive Company (TELCO) founded; early focus on locomotives "
-        "and engineering.\n\n"
-        "1950s — Entry into commercial vehicles through collaboration with Daimler-Benz.\n\n"
-        "1998 — Launch of Tata Indica, an important indigenous passenger car milestone.\n\n"
-        "2004 — Acquisition of Daewoo Commercial Vehicle Company (South Korea), expanding international CV footprint.\n\n"
-        "2008 — Acquisition of Jaguar Land Rover, transforming global brand and technology access.\n\n"
-        "2010s–2020s — Modern PV lineup (Tiago, Nexon, Harrier, Punch), safety focus, and rapid EV scaling.\n\n"
-        "2025 — Business demerger separating CV and PV strategies; continued investment in EV, CNG, and digital manufacturing.",
+        "Tata Motors was established in 1945 as Tata Engineering and Locomotive Company Limited (TELCO). "
+        "Its initial activities were associated with locomotives and engineering products, building industrial "
+        "capability that later supported vehicle manufacturing.",
+    )
+    add_heading(doc, "4.2 Entry into commercial vehicles: 1950s", 2)
+    add_body(
+        doc,
+        "The company entered the commercial vehicle sector through collaboration with Daimler-Benz of Germany "
+        "(1954), marking the beginning of India's organised truck manufacturing ecosystem.",
+    )
+    add_heading(doc, "4.3 Expansion into passenger vehicles", 2)
+    add_body(
+        doc,
+        "Passenger vehicles expanded the business beyond commercial transport. The Tata Indica (1998) became a "
+        "significant milestone as a fully indigenous Indian passenger car. Earlier, Tata Sierra (1991) signalled "
+        "entry into the passenger segment with an SUV.",
+    )
+    add_heading(doc, "4.4 International expansion: 2000s", 2)
+    add_body(
+        doc,
+        "In 2004, Tata Motors acquired Daewoo Commercial Vehicle Company in South Korea. In 2008, it acquired "
+        "Jaguar Land Rover from Ford Motor Company—a landmark global acquisition that added luxury brands and "
+        "advanced engineering capabilities.",
+    )
+    add_heading(doc, "4.5 Development of modern vehicles", 2)
+    add_body(
+        doc,
+        "The company introduced products focused on styling, fuel efficiency, safety, comfort, and technology. "
+        "IMPACT and IMPACT 2.0 design philosophies shaped models such as Tiago, Nexon, Harrier, Safari, and Punch. "
+        "Tata Ace (2005) revolutionised last-mile logistics; Tata Ultra (2014) strengthened intermediate commercial trucks.",
+    )
+    add_heading(doc, "4.6 Electric mobility and digital manufacturing", 2)
+    add_body(
+        doc,
+        "Tata Motors invested in battery-electric vehicles, ZIPTRON powertrain (Nexon EV, 2019), acti.ev platform, "
+        "charging partnerships, connected features, and smarter factories with automation and AI (as described in "
+        "FY2024–25 annual reporting). FY25 milestones include 36% CNG+EV share in PV portfolio, hydrogen ICE truck "
+        "unveil, Curvv launch, and commencement of work on the Tamil Nadu plant.",
     )
 
     add_heading(doc, "5. Manufacturing Methodology Used by Tata Motors", 1)
@@ -363,9 +439,17 @@ def build_docx() -> Path:
     for i, row in enumerate(data, start=1):
         for j, val in enumerate(row):
             prod_table.rows[i].cells[j].text = val
+    shade_table_header(prod_table)
 
-    add_image(doc, "vehicle_portfolio.png", 6.2, "Figure 6: Representative product families across segments")
-    add_image(doc, "ev_ecosystem.png", 5.8, "Figure 7: Electric mobility value chain")
+    add_body(
+        doc,
+        "Tata Motors serves individual customers, businesses, logistics operators, and public transport "
+        "authorities. Passenger offerings span affordable hatchbacks to premium SUVs; commercial offerings span "
+        "mini-trucks to heavy haulage and electric buses; the EV line supports personal and fleet electrification.",
+    )
+    add_image(doc, "products_showcase.png", 6.4, "Figure 6: Key products with segment description (visual catalogue)")
+    add_image(doc, "vehicle_portfolio.png", 6.2, "Figure 7: Representative product families across segments")
+    add_image(doc, "ev_ecosystem.png", 5.8, "Figure 8: Electric mobility value chain")
 
     add_heading(doc, "6.1 Research, Development and Electronics (ECE relevance)", 2)
     add_body(
@@ -391,7 +475,7 @@ def build_docx() -> Path:
             "Quality electronics: test jigs, oscilloscopes, and automated diagnostic stations.",
         ],
     )
-    add_image(doc, "ece_automotive.png", 5.5, "Figure 8: Electronics integration in modern vehicles (ECE perspective)")
+    add_image(doc, "ece_automotive.png", 5.5, "Figure 9: Electronics integration in modern vehicles (ECE perspective)")
 
     add_heading(doc, "6.2 Manufacturing Plants and Operations in India", 2)
     add_body(
@@ -402,7 +486,28 @@ def build_docx() -> Path:
         "body shop, paint shop, engine or powertrain assembly (where applicable), final assembly, "
         "and quality gates. Capacity and product mix are updated over time as new models launch.",
     )
-    add_image(doc, "india_plants_map.png", 5.2, "Figure 9: Major Tata Motors locations in India (schematic)")
+    add_image(doc, "india_plants_map.png", 5.2, "Figure 10: Major Tata Motors locations in India (schematic)")
+
+    add_heading(doc, "6.3 Internship and learning opportunities (ECE)", 2)
+    add_body(
+        doc,
+        "Tata Motors runs structured student programmes (campus hiring, internships, graduate engineer trainees) "
+        "with exposure to manufacturing, quality, production, and engineering functions. Diploma interns in "
+        "electronics-related domains may observe trim-and-chassis fitment, electrical harness routing, earthing "
+        "and safety checks, ECU flashing, heating elements, connector quality, end-of-line electrical testing, and "
+        "cross-functional coordination with quality and supply chain—similar to industrial projects reported at "
+        "PV plants in Pune and manufacturing internships at Sanand.\n\n"
+        "Official portal: joinus.tatamotors.com (Student Programmes). Institutes typically coordinate industrial "
+        "visits and internships through the training and placement cell with company HR.",
+    )
+    add_bullets(
+        doc,
+        [
+            "Suggested internship focus for ECE: wiring harness safety, ECU diagnostics, BMS awareness (EV lines), PLC/automation in body shop.",
+            "Soft skills: safety culture, teamwork across departments, documentation and presentation of findings.",
+            "Career alignment: production engineering, quality, automotive electronics, and vehicle testing.",
+        ],
+    )
 
     add_heading(doc, "7. Challenges and Future Opportunities", 1)
     add_bullets(
@@ -508,9 +613,12 @@ def build_pdf() -> Path:
     pdf.add_font("DejaVu", "B", f"{FONT_DIR}/DejaVuSans-Bold.ttf")
     pdf.add_page()
 
-    if (IMG / "cover_banner.png").exists():
-        pdf.image(str(IMG / "cover_banner.png"), x=10, y=18, w=190)
-        pdf.set_y(95)
+    if (IMG / "cover_premium.png").exists():
+        pdf.image(str(IMG / "cover_premium.png"), x=8, y=15, w=194)
+        pdf.set_y(88)
+    if (IMG / "tata_logo_brand.png").exists():
+        pdf.image(str(IMG / "tata_logo_brand.png"), x=70, w=70)
+        pdf.ln(8)
 
     pdf.set_x(pdf.l_margin)
     pdf.set_font("DejaVu", "B", 14)
@@ -569,11 +677,12 @@ def build_pdf() -> Path:
         ("", "", "market_highlights.png"),
         (
             "4. History and Development of Tata Motors",
-            "1945: TELCO founded. 1950s: commercial vehicles with Daimler-Benz. 1998: Tata Indica. "
-            "2004: Daewoo CV acquisition. 2008: Jaguar Land Rover acquisition. 2010s-2020s: Tiago, "
-            "Nexon, Harrier, Punch, EV leadership. 2025: CV-PV demerger and digital manufacturing.",
+            "Covers 1945 TELCO foundation, 1954 CV entry, 1991 Sierra, 1998 Indica, 2004 Daewoo, 2005 Ace, "
+            "2008 JLR, 2016 Tiago/IMPACT, 2019 Nexon EV/ZIPTRON, 2023 Sanand capacity, 2024 acti.ev, "
+            "2025 Curvv and business demerger. See detailed timeline figures.",
             "history_timeline.png",
         ),
+        ("", "", "history_detailed.png"),
         (
             "5. Manufacturing Methodology Used by Tata Motors",
             "Lean manufacturing, Just-in-Time, Kaizen, TQM, automation and robotics, CAD/CAM, supply "
@@ -582,12 +691,19 @@ def build_pdf() -> Path:
             "manufacturing_flow.png",
         ),
         (
+            "Executive Summary / Internship",
+            "Tata Motors is a leading choice for diploma internships in ECE: plant exposure, harness/ECU work, "
+            "safety culture, and student programmes (joinus.tatamotors.com). FY25 milestones: 6M PV sales, 200K EV sales.",
+            "internship_value.png",
+        ),
+        (
             "6. Products Manufactured by Tata Motors",
             "Passenger: Tiago, Altroz, Tigor, Punch, Nexon, Harrier, Safari, Curvv. Commercial: Ace, "
             "Intra, Yodha, Ultra, Signa, Prima, Starbus. Electric: Nexon EV, Tiago EV, Punch EV, Ace EV, "
             "electric buses. Products serve personal mobility, goods transport, and public transport.",
-            "vehicle_portfolio.png",
+            "products_showcase.png",
         ),
+        ("", "", "vehicle_portfolio.png"),
         ("", "", "ev_ecosystem.png"),
         (
             "6.1 R&D and Electronics (ECE)",
@@ -669,6 +785,11 @@ def package_downloads(docx: Path, pdf: Path) -> Path:
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
+    tata_logo()
+    cover_premium()
+    detailed_history()
+    product_showcase()
+    internship_infographic()
     docx = build_docx()
     pdf = build_pdf()
     zip_path = package_downloads(docx, pdf)
