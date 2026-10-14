@@ -17,12 +17,15 @@ from fpdf import FPDF
 
 from report_content import (
     ABOUT,
+    ACHIEVEMENTS_FY25,
     CHALLENGES,
     CHALLENGES_INTRO,
     CONCLUSION,
     ECE,
+    ECE_BULLETS,
     EXECUTIVE_SUMMARY,
     HISTORY,
+    INTERNSHIP_PROGRAMMES,
     INTRO,
     METHODOLOGY,
     METHODOLOGY_BULLETS,
@@ -33,11 +36,17 @@ from report_content import (
     PRODUCT_BLOCKS,
     PRODUCT_TABLE,
     PRODUCTS_INTRO,
+    RD_INNOVATION,
     REFERENCES,
     SEGMENT_CV,
+    SEGMENT_CV_TEXT,
     SEGMENT_EV,
+    SEGMENT_EV_TEXT,
     SEGMENT_JLR,
     SEGMENT_PV,
+    SEGMENT_PV_TEXT,
+    STRENGTHS,
+    SUSTAINABILITY,
 )
 
 ROOT = Path(__file__).resolve().parent
@@ -244,7 +253,7 @@ def build_docx() -> Path:
         "Executive Summary",
         "1. Introduction",
         "2. About Tata Motors",
-        "3. Company Overview",
+        "3. Company Overview (segments, achievements, R&D, sustainability)",
         "4. History and Development of Tata Motors",
         "5. Manufacturing Methodology Used by Tata Motors",
         "6. Products Manufactured by Tata Motors",
@@ -260,6 +269,7 @@ def build_docx() -> Path:
 
     add_h(doc, "Executive Summary")
     add_p(doc, EXECUTIVE_SUMMARY)
+    add_pic(doc, "market_highlights.png", 5.4, "Figure ES-1: Market position highlights (FY25 public messaging)")
     doc.add_page_break()
 
     add_h(doc, "1. Introduction")
@@ -272,14 +282,27 @@ def build_docx() -> Path:
     add_h(doc, "3. Company Overview")
     add_p(doc, OVERVIEW)
     add_pic(doc, "photo_overview.jpg", 5.8, "Figure 2: Manufacturing and product operations")
+    add_pic(doc, "business_segments.png", 5.4, "Figure 3: Major business segments (illustrative)")
     add_h(doc, "3.1 Tata Commercial Vehicles (CV)", 2)
+    add_p(doc, SEGMENT_CV_TEXT)
     add_bullets(doc, SEGMENT_CV)
     add_h(doc, "3.2 Tata Passenger Vehicles (PV)", 2)
+    add_p(doc, SEGMENT_PV_TEXT)
     add_bullets(doc, SEGMENT_PV)
     add_h(doc, "3.3 Electric Mobility", 2)
+    add_p(doc, SEGMENT_EV_TEXT)
     add_bullets(doc, SEGMENT_EV)
     add_h(doc, "3.4 Jaguar Land Rover (JLR)", 2)
     add_p(doc, SEGMENT_JLR)
+    add_h(doc, "3.5 Achievements and business progress (FY2024–25)", 2)
+    add_p(doc, ACHIEVEMENTS_FY25)
+    add_h(doc, "3.6 Research, development and innovation", 2)
+    add_p(doc, RD_INNOVATION)
+    add_h(doc, "3.7 Sustainability and future mobility", 2)
+    add_p(doc, SUSTAINABILITY)
+    add_pic(doc, "ev_ecosystem.png", 5.2, "Figure 4: Electric mobility value chain")
+    add_h(doc, "3.8 Core strengths", 2)
+    add_bullets(doc, STRENGTHS)
 
     add_h(doc, "Basic company profile", 2)
     profile = doc.add_table(rows=11, cols=2)
@@ -307,6 +330,7 @@ def build_docx() -> Path:
 
     add_h(doc, "4. History and Development of Tata Motors")
     add_two_pics(doc, "photo_history_collage.jpg", "photo_history_indica.jpg")
+    add_pic(doc, "history_timeline.png", 5.6, "Figure 5: Historical milestone timeline")
     for title, body in HISTORY.items():
         add_h(doc, title, 2)
         add_p(doc, body)
@@ -316,6 +340,7 @@ def build_docx() -> Path:
     add_h(doc, "5. Manufacturing Methodology Used by Tata Motors")
     add_two_pics(doc, "photo_manufacturing_robots.jpg", "photo_manufacturing_workers.jpg")
     add_p(doc, MFG_INTRO)
+    add_pic(doc, "manufacturing_flow.png", 5.6, "Figure 6: Typical automobile manufacturing flow")
     for title, lead, bullets in MFG_SECTIONS:
         add_h(doc, title, 2)
         add_p(doc, lead)
@@ -342,8 +367,14 @@ def build_docx() -> Path:
 
     add_h(doc, "6.5 Research, Development and Electronics (ECE relevance)", 2)
     add_p(doc, ECE)
+    add_bullets(doc, ECE_BULLETS)
+    add_pic(doc, "ece_automotive.png", 5.0, "Figure 7: Electronics integration in vehicles")
     add_h(doc, "6.6 Manufacturing plants in India", 2)
     add_p(doc, PLANTS)
+    add_pic(doc, "india_plants_map.png", 4.8, "Figure 8: Major locations in India (schematic)")
+    add_h(doc, "6.7 Internship and student programmes", 2)
+    add_p(doc, INTERNSHIP_PROGRAMMES)
+    add_pic(doc, "internship_value.png", 5.2, "Figure 9: Internship learning areas for diploma students")
 
     doc.add_page_break()
 
@@ -439,14 +470,18 @@ def build_pdf() -> Path:
     pdf.add_page()
 
     blocks: list[tuple[str, str, str | None, float]] = [
-        ("Executive Summary", EXECUTIVE_SUMMARY, None, 0),
+        ("Executive Summary", EXECUTIVE_SUMMARY, "market_highlights.png", 115),
         ("1. Introduction", INTRO, None, 0),
-        ("2. About Tata Motors", ABOUT, "photo_head_office.jpg", 130),
-        ("3. Company Overview", OVERVIEW, "photo_overview.jpg", 130),
-        ("3.1 Commercial Vehicles", "\n".join(f"- {x}" for x in SEGMENT_CV), None, 0),
-        ("3.2 Passenger Vehicles", "\n".join(f"- {x}" for x in SEGMENT_PV), None, 0),
-        ("3.3 Electric Mobility", "\n".join(f"- {x}" for x in SEGMENT_EV), None, 0),
+        ("2. About Tata Motors", ABOUT, "photo_head_office.jpg", 125),
+        ("3. Company Overview", OVERVIEW, "photo_overview.jpg", 125),
+        ("3.1 Commercial Vehicles", SEGMENT_CV_TEXT + "\n" + "\n".join(f"- {x}" for x in SEGMENT_CV), "business_segments.png", 115),
+        ("3.2 Passenger Vehicles", SEGMENT_PV_TEXT + "\n" + "\n".join(f"- {x}" for x in SEGMENT_PV), None, 0),
+        ("3.3 Electric Mobility", SEGMENT_EV_TEXT + "\n" + "\n".join(f"- {x}" for x in SEGMENT_EV), "ev_ecosystem.png", 110),
         ("3.4 Jaguar Land Rover", SEGMENT_JLR, None, 0),
+        ("3.5 Achievements FY25", ACHIEVEMENTS_FY25, None, 0),
+        ("3.6 R&D and Innovation", RD_INNOVATION, None, 0),
+        ("3.7 Sustainability", SUSTAINABILITY, None, 0),
+        ("3.8 Strengths", "\n".join(f"- {s}" for s in STRENGTHS), None, 0),
     ]
     for title, body, img, w in blocks:
         pdf_block(pdf, title, body)
@@ -455,13 +490,15 @@ def build_pdf() -> Path:
 
     pdf.add_page()
     pdf_block(pdf, "4. History and Development of Tata Motors", "")
-    pdf_image(pdf, "photo_history_collage.jpg", 125)
-    pdf_image(pdf, "photo_history_indica.jpg", 125)
+    pdf_image(pdf, "photo_history_collage.jpg", 120)
+    pdf_image(pdf, "photo_history_indica.jpg", 120)
+    pdf_image(pdf, "history_timeline.png", 115)
     for title, body in HISTORY.items():
         pdf_block(pdf, title, body)
 
     pdf.add_page()
     pdf_block(pdf, "5. Manufacturing Methodology Used by Tata Motors", MFG_INTRO)
+    pdf_image(pdf, "manufacturing_flow.png", 110)
     pdf_image(pdf, "photo_manufacturing_robots.jpg", 78)
     pdf_image(pdf, "photo_manufacturing_workers.jpg", 78)
     for title, lead, bullets in MFG_SECTIONS:
@@ -474,8 +511,12 @@ def build_pdf() -> Path:
         pdf_block(pdf, title, body)
         pdf_image(pdf, image, 65)
 
-    pdf_block(pdf, "6.5 ECE relevance", ECE)
+    pdf_block(pdf, "6.5 ECE relevance", ECE + "\n" + "\n".join(f"- {b}" for b in ECE_BULLETS))
+    pdf_image(pdf, "ece_automotive.png", 105)
     pdf_block(pdf, "6.6 Plants in India", PLANTS)
+    pdf_image(pdf, "india_plants_map.png", 100)
+    pdf_block(pdf, "6.7 Internship programmes", INTERNSHIP_PROGRAMMES)
+    pdf_image(pdf, "internship_value.png", 105)
     pdf_block(pdf, "7. Challenges and Future Opportunities", CHALLENGES_INTRO)
     pdf_image(pdf, "photo_future_mobility.jpg", 120)
     pdf_block(pdf, "", "\n".join(f"- {c}" for c in CHALLENGES))
