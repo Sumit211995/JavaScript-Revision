@@ -1,28 +1,24 @@
 #!/usr/bin/env python3
-"""Generate Tata Motors internship research report (DOCX + PDF)."""
+"""Generate Tata Motors internship report — layout matched to student reference PDF."""
 
 from __future__ import annotations
 
+import zipfile
 from datetime import date
 from pathlib import Path
 
 from docx import Document
+from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 from fpdf import FPDF
 
-from create_brand_assets import (
-    cover_premium,
-    detailed_history,
-    internship_infographic,
-    product_showcase,
-    tata_logo,
-)
-
 ROOT = Path(__file__).resolve().parent
 IMG = ROOT / "images"
 OUT = ROOT / "output"
+FONT_DIR = "/usr/share/fonts/truetype/dejavu"
 
 STUDENT = {
     "name": "Nachiket L Karoshi",
@@ -33,138 +29,173 @@ STUDENT = {
     "submission_date": date.today().strftime("%d %B %Y"),
 }
 
-NAVY = (0, 51, 102)
-ACCENT = (200, 16, 46)
-FONT_DIR = "/usr/share/fonts/truetype/dejavu"
+NAVY = RGBColor(0, 51, 102)
+BLUE_HEAD = RGBColor(31, 78, 121)
 
 
-def set_run_font(run, size=11, bold=False, color=None):
-    run.font.name = "Calibri"
-    run._element.rPr.rFonts.set(qn("w:eastAsia"), "Calibri")
+def set_run(run, size=11, bold=False, color=None, name="Calibri"):
+    run.font.name = name
+    run._element.rPr.rFonts.set(qn("w:eastAsia"), name)
     run.font.size = Pt(size)
     run.bold = bold
     if color:
-        run.font.color.rgb = RGBColor(*color)
+        run.font.color.rgb = color
 
 
-def add_heading(doc: Document, text: str, level: int = 1):
+def add_h(doc: Document, text: str, level: int = 1):
     p = doc.add_paragraph()
-    run = p.add_run(text)
-    sizes = {1: 16, 2: 14, 3: 12}
-    set_run_font(run, size=sizes.get(level, 11), bold=True, color=NAVY)
-    p.paragraph_format.space_before = Pt(12 if level == 1 else 8)
+    r = p.add_run(text)
+    set_run(r, size={1: 16, 2: 13, 3: 12}.get(level, 11), bold=True, color=NAVY)
+    p.paragraph_format.space_before = Pt(10)
     p.paragraph_format.space_after = Pt(6)
 
 
-def add_body(doc: Document, text: str):
-    for para in text.strip().split("\n\n"):
-        p = doc.add_paragraph(para.strip())
-        p.paragraph_format.space_after = Pt(8)
-        p.paragraph_format.line_spacing = 1.15
-        for run in p.runs:
-            set_run_font(run, size=11)
+def add_p(doc: Document, text: str):
+    for block in text.strip().split("\n\n"):
+        para = doc.add_paragraph(block.strip())
+        para.paragraph_format.line_spacing = 1.2
+        para.paragraph_format.space_after = Pt(8)
+        for run in para.runs:
+            set_run(run)
 
 
 def add_bullets(doc: Document, items: list[str]):
     for item in items:
-        p = doc.add_paragraph(item, style="List Bullet")
-        for run in p.runs:
-            set_run_font(run, size=11)
+        para = doc.add_paragraph(item, style="List Bullet")
+        for run in para.runs:
+            set_run(run)
 
 
-def shade_table_header(table, hex_color: str = "003366"):
-    from docx.oxml import OxmlElement
-
-    for cell in table.rows[0].cells:
-        tc = cell._tc
-        tc_pr = tc.get_or_add_tcPr()
-        shd = OxmlElement("w:shd")
-        shd.set(qn("w:fill"), hex_color)
-        tc_pr.append(shd)
-        for p in cell.paragraphs:
-            for run in p.runs:
-                run.font.color.rgb = RGBColor(255, 255, 255)
-                run.bold = True
+def add_centered(doc: Document, text: str, size=12, bold=False, color=None):
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r = p.add_run(text)
+    set_run(r, size=size, bold=bold, color=color or NAVY)
 
 
-def add_image(doc: Document, name: str, width_in: float = 6.0, caption: str | None = None):
-    path = IMG / name
-    if path.exists():
-        doc.add_picture(str(path), width=Inches(width_in))
-        last = doc.paragraphs[-1]
-        last.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        if caption:
-            cp = doc.add_paragraph(caption)
-            cp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            for run in cp.runs:
-                set_run_font(run, size=9, color=(80, 80, 80))
+def add_pic(doc: Document, filename: str, width: float = 5.5, caption: str | None = None):
+    path = IMG / filename
+    if not path.exists():
+        return
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run()
+    run.add_picture(str(path), width=Inches(width))
+    if caption:
+        c = doc.add_paragraph(caption)
+        c.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for run in c.runs:
+            set_run(run, size=9, color=RGBColor(90, 90, 90))
+
+
+def add_two_pics(doc: Document, left: str, right: str, width: float = 2.9):
+    table = doc.add_table(rows=1, cols=2)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    for cell, file in zip(table.rows[0].cells, (left, right)):
+        if (IMG / file).exists():
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            cell.paragraphs[0].add_run().add_picture(str(IMG / file), width=Inches(width))
+    doc.add_paragraph()
+
+
+def add_product_block(doc: Document, title: str, image: str, body: str):
+    table = doc.add_table(rows=1, cols=2)
+    table.autofit = False
+    table.columns[0].width = Inches(2.6)
+    table.columns[1].width = Inches(3.8)
+    if (IMG / image).exists():
+        c0 = table.rows[0].cells[0].paragraphs[0]
+        c0.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        c0.add_run().add_picture(str(IMG / image), width=Inches(2.4))
+    c1 = table.rows[0].cells[1].paragraphs[0]
+    r = c1.add_run(title + "\n")
+    set_run(r, bold=True, color=BLUE_HEAD)
+    r2 = c1.add_run(body)
+    set_run(r2)
+    doc.add_paragraph()
+
+
+def style_profile_table(table):
+    for row_idx, row in enumerate(table.rows):
+        for cell in row.cells:
+            tc_pr = cell._tc.get_or_add_tcPr()
+            if row_idx == 0:
+                shd = OxmlElement("w:shd")
+                shd.set(qn("w:fill"), "1F4E79")
+                tc_pr.append(shd)
+            elif row_idx % 2 == 0:
+                shd = OxmlElement("w:shd")
+                shd.set(qn("w:fill"), "E8F1FA")
+                tc_pr.append(shd)
+            for p in cell.paragraphs:
+                for run in p.runs:
+                    if row_idx == 0:
+                        set_run(run, bold=True, color=RGBColor(255, 255, 255))
+                    else:
+                        set_run(run, size=10)
+
+
+def build_cover(doc: Document):
+    add_centered(doc, "DIPLOMA FINAL-YEAR INTERNSHIP", 13, True)
+    add_centered(doc, "COMPANY RESEARCH REPORT", 12, True, RGBColor(80, 80, 80))
+    doc.add_paragraph()
+    add_centered(doc, "TATA MOTORS LIMITED", 18, True)
+    add_centered(
+        doc,
+        "A Study of Company Development, Automotive Products,\n"
+        "Research and Development, and Manufacturing Methodologies",
+        11,
+        False,
+        RGBColor(70, 70, 70),
+    )
+    doc.add_paragraph()
+    meta = [
+        ("Submitted by", STUDENT["name"]),
+        ("Diploma / Department", STUDENT["department"]),
+        ("Institution", STUDENT["institution"]),
+        ("Internship organisation", STUDENT["internship_org"]),
+        ("Academic year", STUDENT["academic_year"]),
+        ("Submission date", STUDENT["submission_date"]),
+    ]
+    table = doc.add_table(rows=len(meta), cols=2)
+    table.style = "Table Grid"
+    for i, (k, v) in enumerate(meta):
+        table.rows[i].cells[0].text = k
+        table.rows[i].cells[1].text = v
+    style_profile_table(table)
+    doc.add_paragraph()
+    add_centered(
+        doc,
+        "Submitted in partial fulfilment of the requirements for the Diploma final-year internship.",
+        10,
+        False,
+        RGBColor(90, 90, 90),
+    )
 
 
 def build_docx() -> Path:
     doc = Document()
-    section = doc.sections[0]
-    section.top_margin = Inches(0.9)
-    section.bottom_margin = Inches(0.9)
-    section.left_margin = Inches(1)
-    section.right_margin = Inches(1)
+    for section in doc.sections:
+        section.top_margin = Inches(1)
+        section.bottom_margin = Inches(1)
+        section.left_margin = Inches(1)
+        section.right_margin = Inches(1)
 
-    # Cover
-    add_image(doc, "cover_premium.png", width_in=6.8)
-    add_image(doc, "tata_logo_brand.png", width_in=3.2)
-    doc.add_paragraph()
-    t = doc.add_paragraph()
-    t.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = t.add_run("DIPLOMA FINAL-YEAR INTERNSHIP\nCOMPANY RESEARCH REPORT")
-    set_run_font(r, size=14, bold=True, color=NAVY)
-
-    title = doc.add_paragraph()
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    rt = title.add_run("TATA MOTORS LIMITED")
-    set_run_font(rt, size=16, bold=True, color=ACCENT)
-
-    sub = doc.add_paragraph()
-    sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    rs = sub.add_run(
-        "A Study of Company Development, Automotive Products,\n"
-        "Research and Development, and Manufacturing Methodologies"
-    )
-    set_run_font(rs, size=11)
-
-    meta = doc.add_paragraph()
-    meta.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    lines = [
-        f"Submitted by: {STUDENT['name']}",
-        f"Diploma / Department: {STUDENT['department']}",
-        f"Institution: {STUDENT['institution']}",
-        f"Internship organisation: {STUDENT['internship_org']}",
-        f"Academic year: {STUDENT['academic_year']}",
-        f"Submission date: {STUDENT['submission_date']}",
-        "",
-        "Submitted in partial fulfilment of the requirements for the Diploma final-year internship.",
-    ]
-    for line in lines:
-        p = doc.add_paragraph(line)
-        for run in p.runs:
-            set_run_font(run, size=11)
-
+    build_cover(doc)
     doc.add_page_break()
 
-    add_heading(doc, "Certificate / Declaration", 1)
-    add_body(
+    add_h(doc, "Certificate / Declaration")
+    add_p(
         doc,
-        f"I hereby declare that this company research report entitled \"Tata Motors Limited — "
-        f"Company Research Report\" is prepared by me, {STUDENT['name']}, as part of the "
-        f"final-year diploma internship requirement. The information is compiled from publicly "
-        f"available sources and general industrial knowledge. I have not copied any material "
-        f"without appropriate acknowledgement.\n\n"
+        f"I hereby declare that this report is my original work prepared for the diploma internship. "
+        f"Information is taken from official and public sources with acknowledgement.\n\n"
         f"Place: Haveri\nDate: {STUDENT['submission_date']}\n\n"
-        f"Signature of student: _______________________\n"
-        f"Name: {STUDENT['name']}",
+        f"Signature: _______________________\nName: {STUDENT['name']}",
     )
-
     doc.add_page_break()
-    add_heading(doc, "Table of Contents", 1)
-    toc = [
+
+    add_h(doc, "Table of Contents")
+    for line in [
         "1. Introduction",
         "2. About Tata Motors",
         "3. Company Overview",
@@ -174,628 +205,399 @@ def build_docx() -> Path:
         "7. Challenges and Future Opportunities",
         "8. Research Methodology",
         "9. Conclusion",
-        "10. References",
-    ]
-    for line in toc:
+    ]:
         p = doc.add_paragraph(line)
         for run in p.runs:
-            set_run_font(run, size=11)
-
+            set_run(run)
     doc.add_page_break()
 
-    add_heading(doc, "Executive Summary", 1)
-    add_body(
-        doc,
-        "Tata Motors Limited is India's flagship automotive company under the Tata Group, with leadership "
-        "in commercial vehicles, a top-three position in passenger vehicles, and dominant market share in "
-        "passenger electric vehicles. This report presents a structured study of the company's history, "
-        "business segments, product portfolio, manufacturing methodologies, research areas, and future "
-        "opportunities—prepared to support a diploma internship application in Electronics and Communication "
-        "Engineering.\n\n"
-        "Public disclosures for FY2024–25 highlight milestones such as 6 million cumulative passenger vehicle "
-        "sales, 200,000+ cumulative EV sales, expansion at Sanand, and groundwork for a new Tamil Nadu "
-        "manufacturing facility. The company's multi-powertrain strategy (petrol, diesel, CNG, electric, and "
-        "alternate fuels including hydrogen ICE trucks) aligns with India's mobility and sustainability goals. "
-        "For ECE students, Tata Motors offers exposure to vehicle electronics, wiring harnesses, ECUs, battery "
-        "management, production testing, and plant safety systems—making it a strong choice for industrial training.",
-    )
-    add_image(doc, "internship_value.png", 5.8, "Figure A: Value of internship at Tata Motors for diploma students")
-
-    add_heading(doc, "1. Introduction", 1)
-    add_body(
+    # --- 1 Introduction ---
+    add_h(doc, "1. Introduction")
+    add_pic(doc, "tata_motors_logo.png", 1.6)
+    add_p(
         doc,
         "The automobile industry is one of the most important sectors of the Indian economy. It "
         "contributes to industrial development, employment generation, technological innovation, "
-        "infrastructure development, and international trade. Within this industry, Tata Motors "
-        "has established itself as a major automobile manufacturer with a strong presence in "
-        "passenger vehicles, commercial vehicles, electric mobility, and premium international brands.\n\n"
+        "infrastructure development, and international trade. Within this industry, Tata Motors has "
+        "established itself as a major automobile manufacturer with a strong presence in passenger "
+        "vehicles, commercial vehicles, electric mobility, and vehicle engineering.\n\n"
         "Tata Motors was established in 1945 as Tata Engineering and Locomotive Company Limited "
-        "(TELCO). Initially, the company focused on locomotives and engineering products. Over "
-        "time, it expanded into commercial vehicles, passenger cars, sport utility vehicles (SUVs), "
-        "buses, and electric vehicles. The company has contributed significantly to the development "
-        "of the Indian automobile industry through indigenous vehicle design, expanded manufacturing "
-        "capabilities, improved vehicle safety, and investment in sustainable mobility.\n\n"
-        "This research report examines Tata Motors' background, organisational development, business "
-        "segments, products, manufacturing processes, research and development areas, achievements, "
-        "and recent developments. For a diploma student in Electronics and Communication Engineering, "
-        "the report also highlights how electronic systems, sensors, control units, and connectivity "
-        "are integrated into modern vehicles.",
+        "(TELCO). Initially, the company focused on manufacturing locomotives and engineering products. "
+        "Over time, it expanded into commercial vehicles, passenger cars, sports utility vehicles (SUVs), "
+        "buses, and electric vehicles. The company has contributed significantly to the development of "
+        "the Indian automobile industry by introducing indigenous vehicle designs, expanding manufacturing "
+        "capabilities, improving vehicle safety, and investing in sustainable mobility.\n\n"
+        "This research report examines Tata Motors' background, organisational development, products, "
+        "manufacturing processes, achievements, business progress, and recent developments. It also "
+        "studies manufacturing methodologies and the importance of continuous improvement in quality, "
+        "productivity, and customer satisfaction.",
     )
 
-    add_heading(doc, "2. About Tata Motors", 1)
-    add_body(
+    # --- 2 About ---
+    add_h(doc, "2. About Tata Motors")
+    add_pic(doc, "photo_head_office.jpg", 5.8)
+    add_p(
         doc,
-        "Tata Motors is a leading automotive manufacturer associated with the Tata Group, one of "
-        "India's largest and most respected business conglomerates. Its operations cover the design, "
-        "development, manufacturing, marketing, and servicing of a wide range of vehicles.\n\n"
+        "Tata Motors is a well-known automotive manufacturer associated with the Tata Group. Its "
+        "operations cover the design, development, manufacturing, marketing, and servicing of a wide "
+        "range of vehicles.\n\n"
         "The company serves individual customers, businesses, logistics operators, public transport "
         "organisations, and industrial customers. Its vehicles are used for personal transportation, "
-        "goods transportation, passenger transport, construction, mining, defence-related mobility, "
-        "and specialised commercial applications.\n\n"
-        "Tata Motors invests in research and development, vehicle electrification, connected "
-        "technologies, safety engineering, and advanced manufacturing systems. Public company "
-        "materials describe a multi-segment automotive business with strong positions in commercial "
-        "vehicles and a growing passenger vehicle and electric mobility portfolio, alongside the "
-        "international Jaguar Land Rover (JLR) business.",
+        "goods transportation, passenger transport, construction, and specialised commercial applications.\n\n"
+        "Tata Motors has invested in research and development, vehicle electrification, connected "
+        "technologies, safety engineering, and advanced manufacturing systems.",
     )
 
-    table = doc.add_table(rows=9, cols=2)
-    table.style = "Table Grid"
+    # --- 3 Overview ---
+    add_h(doc, "3. Company Overview")
+    add_pic(doc, "photo_overview.jpg", 6.0)
+    add_p(
+        doc,
+        "Tata Motors operates in a highly competitive industry where product quality, pricing, design, "
+        "safety, technology, fuel efficiency, and after-sales service influence customer decisions. Its "
+        "business developed around two principal segments:\n\n"
+        "Passenger vehicles: Cars, SUVs and electric passenger vehicles for personal and family transportation.\n\n"
+        "Commercial vehicles: Trucks, buses, vans, light commercial vehicles and specialised vehicles for "
+        "businesses and public transportation.\n\n"
+        "The group also includes electric mobility solutions and the global Jaguar Land Rover (JLR) business. "
+        "Public reports for FY2024–25 note leadership in Indian CV, strong SUV growth in PV, and a large share "
+        "of the passenger EV market.",
+    )
+
+    profile = doc.add_table(rows=10, cols=2)
+    profile.style = "Table Grid"
     rows = [
-        ("Company name", "Tata Motors Limited (group; segment structure evolved in FY25–26)"),
+        ("Particular", "Details"),
+        ("Company name", "Tata Motors Limited"),
         ("Established", "1945"),
         ("Original name", "Tata Engineering and Locomotive Company (TELCO)"),
         ("Industry", "Automotive manufacturing"),
         ("Headquarters", "Mumbai, Maharashtra, India"),
         ("Parent group", "Tata Group"),
-        ("Main products", "Cars, SUVs, trucks, buses, vans, electric vehicles, mobility solutions"),
-        ("Major markets", "India and selected international markets"),
-        ("Core focus", "Quality, safety, innovation, sustainability, customer satisfaction"),
+        ("Main products", "Cars, SUVs, trucks, buses, electric vehicles"),
+        ("Major markets", "India and international markets"),
+        ("Key focus", "Quality, safety, innovation, sustainability"),
     ]
     for i, (a, b) in enumerate(rows):
-        table.rows[i].cells[0].text = a
-        table.rows[i].cells[1].text = b
-    shade_table_header(table)
+        profile.rows[i].cells[0].text = a
+        profile.rows[i].cells[1].text = b
+    style_profile_table(profile)
 
-    add_heading(doc, "3. Company Overview", 1)
-    add_body(
+    doc.add_page_break()
+
+    # --- 4 History ---
+    add_h(doc, "4. History and Development of Tata Motors")
+    add_two_pics(doc, "photo_history_collage.jpg", "photo_history_indica.jpg")
+    add_h(doc, "4.1 Early foundation: 1945", 2)
+    add_p(doc, "Tata Motors was established in 1945 as TELCO, with initial focus on locomotives and engineering products.")
+    add_h(doc, "4.2 Entry into commercial vehicles: 1950s", 2)
+    add_p(doc, "The company entered commercial vehicles through collaboration with Daimler-Benz (1954).")
+    add_h(doc, "4.3 Expansion into passenger vehicles", 2)
+    add_p(
         doc,
-        "Tata Motors operates in a highly competitive industry where product quality, pricing, "
-        "design, safety, technology, fuel efficiency, and after-sales service influence customer "
-        "decisions. According to Tata Motors' integrated annual report and investor presentations "
-        "for FY2024–25, the group's automotive business is organised around major reportable "
-        "segments including Tata Commercial Vehicles (Tata CV), Tata Passenger Vehicles (Tata PV), "
-        "electric mobility, and Jaguar Land Rover (JLR).\n\n"
-        "Effective 1 October 2025, the company implemented a composite scheme of arrangement "
-        "approved by the National Company Law Tribunal to demerge commercial vehicles from passenger "
-        "vehicles (including electric passenger mobility), creating focused listed entities for "
-        "sharper strategy execution. Students should refer to the latest annual report for the "
-        "exact legal entity names after demerger.",
+        "Passenger vehicles expanded the business beyond commercial transport. The Tata Indica (1998) "
+        "became a milestone as an indigenously developed passenger car.",
     )
-    add_image(doc, "business_segments.png", 5.8, "Figure 1: Illustrative revenue scale by segment (FY25 public disclosures)")
-    add_image(doc, "product_segments.png", 5.8, "Figure 2: Product and market segments")
-    add_image(doc, "market_highlights.png", 5.8, "Figure 3: Market position highlights (public FY25 disclosures)")
-
-    add_heading(doc, "3.1 Tata Commercial Vehicles (CV)", 2)
-    add_bullets(
+    add_h(doc, "4.4 International expansion: 2000s", 2)
+    add_p(
         doc,
-        [
-            "Trucks (light, medium, and heavy), tippers, tractors, and specialised haulage vehicles.",
-            "Buses and staff carriers for public transport, schools, and institutions.",
-            "Small commercial vehicles and pickups such as the Tata Ace and Intra families.",
-            "Electric commercial mobility including Ace EV and electric bus solutions for smart cities.",
-            "India market leadership in commercial vehicles; focus on uptime, total cost of ownership, and fleet solutions.",
-        ],
+        "2004: Daewoo Commercial Vehicle Company (South Korea). 2008: Jaguar Land Rover acquired from Ford — "
+        "a landmark global acquisition.",
     )
-
-    add_heading(doc, "3.2 Tata Passenger Vehicles (PV)", 2)
-    add_bullets(
+    add_h(doc, "4.5 Development of modern vehicles", 2)
+    add_p(
         doc,
-        [
-            "Hatchbacks and compact cars (e.g., Tiago, Altroz).",
-            "SUVs and crossovers (e.g., Punch, Nexon, Harrier, Safari).",
-            "Multi-powertrain strategy: petrol, diesel, CNG, and electric variants where offered.",
-            "Strong SUV portfolio aligned with Indian market preference; safety ratings (NCAP) used as a brand pillar.",
-        ],
+        "Modern lineup includes Tiago, Nexon, Harrier, Safari, Punch, and Curvv with improved safety, "
+        "design, and technology.",
+    )
+    add_h(doc, "4.6 Electric mobility and digital manufacturing", 2)
+    add_p(
+        doc,
+        "Investments in battery-electric vehicles, ZIPTRON powertrain, charging partnerships, connected "
+        "features, automation, and sustainable mobility. FY25 milestones include expanded EV/CNG portfolio "
+        "and new manufacturing capacity.",
     )
 
-    add_heading(doc, "3.3 Electric Mobility", 2)
-    add_bullets(
+    # --- 5 Manufacturing ---
+    add_h(doc, "5. Manufacturing Methodology Used by Tata Motors")
+    add_two_pics(doc, "photo_manufacturing_robots.jpg", "photo_manufacturing_workers.jpg")
+    add_p(
         doc,
-        [
-            "Tata Passenger Electric Mobility leads India's passenger EV market with a majority share in many periods.",
-            "Models include Nexon EV, Tiago EV, Punch EV, and upcoming platforms.",
-            "Ecosystem work includes charging partnerships, battery technology, and software-defined features.",
-            "Commercial EV includes electric buses with large fleet kilometres operated in Indian cities.",
-        ],
+        "Automobile manufacturing involves design, procurement, assembly, inspection, and delivery. "
+        "The following are established practices relevant to Tata Motors operations (general industry methods; "
+        "exact procedures vary by plant).",
     )
-
-    add_heading(doc, "3.4 Jaguar Land Rover (JLR)", 2)
-    add_body(
-        doc,
-        "Acquired in 2008, JLR represents Tata Motors' global premium automotive business with "
-        "luxury brands Jaguar and Land Rover, advanced engineering, and export-oriented manufacturing "
-        "in the United Kingdom and other locations.",
-    )
-
-    add_heading(doc, "4. History and Development of Tata Motors", 1)
-    add_image(doc, "history_timeline.png", 6.0, "Figure 4: Key milestones (overview)")
-    add_image(doc, "history_detailed.png", 6.2, "Figure 5: Detailed historical timeline (1945–2025)")
-
-    add_heading(doc, "4.1 Early foundation: 1945", 2)
-    add_body(
-        doc,
-        "Tata Motors was established in 1945 as Tata Engineering and Locomotive Company Limited (TELCO). "
-        "Its initial activities were associated with locomotives and engineering products, building industrial "
-        "capability that later supported vehicle manufacturing.",
-    )
-    add_heading(doc, "4.2 Entry into commercial vehicles: 1950s", 2)
-    add_body(
-        doc,
-        "The company entered the commercial vehicle sector through collaboration with Daimler-Benz of Germany "
-        "(1954), marking the beginning of India's organised truck manufacturing ecosystem.",
-    )
-    add_heading(doc, "4.3 Expansion into passenger vehicles", 2)
-    add_body(
-        doc,
-        "Passenger vehicles expanded the business beyond commercial transport. The Tata Indica (1998) became a "
-        "significant milestone as a fully indigenous Indian passenger car. Earlier, Tata Sierra (1991) signalled "
-        "entry into the passenger segment with an SUV.",
-    )
-    add_heading(doc, "4.4 International expansion: 2000s", 2)
-    add_body(
-        doc,
-        "In 2004, Tata Motors acquired Daewoo Commercial Vehicle Company in South Korea. In 2008, it acquired "
-        "Jaguar Land Rover from Ford Motor Company—a landmark global acquisition that added luxury brands and "
-        "advanced engineering capabilities.",
-    )
-    add_heading(doc, "4.5 Development of modern vehicles", 2)
-    add_body(
-        doc,
-        "The company introduced products focused on styling, fuel efficiency, safety, comfort, and technology. "
-        "IMPACT and IMPACT 2.0 design philosophies shaped models such as Tiago, Nexon, Harrier, Safari, and Punch. "
-        "Tata Ace (2005) revolutionised last-mile logistics; Tata Ultra (2014) strengthened intermediate commercial trucks.",
-    )
-    add_heading(doc, "4.6 Electric mobility and digital manufacturing", 2)
-    add_body(
-        doc,
-        "Tata Motors invested in battery-electric vehicles, ZIPTRON powertrain (Nexon EV, 2019), acti.ev platform, "
-        "charging partnerships, connected features, and smarter factories with automation and AI (as described in "
-        "FY2024–25 annual reporting). FY25 milestones include 36% CNG+EV share in PV portfolio, hydrogen ICE truck "
-        "unveil, Curvv launch, and commencement of work on the Tamil Nadu plant.",
-    )
-
-    add_heading(doc, "5. Manufacturing Methodology Used by Tata Motors", 1)
-    add_image(doc, "manufacturing_flow.png", 6.2, "Figure 5: Typical vehicle manufacturing flow")
-    add_body(
-        doc,
-        "Automobile manufacturing involves coordinated activities from product design and procurement "
-        "to assembly, inspection, and delivery. Tata Motors uses established automotive practices; "
-        "exact procedures vary by plant and product line. The following describes widely used "
-        "methodologies relevant to Tata Motors and the industry.",
-    )
-    sections_mfg = [
-        (
-            "5.1 Lean manufacturing",
-            "Reduces waste and improves material flow through elimination of unnecessary movement, "
-            "excess inventory, and rework while improving productivity and quality.",
-        ),
-        (
-            "5.2 Just-in-Time (JIT) production",
-            "Supplies components when needed on the line, requiring reliable suppliers and accurate scheduling.",
-        ),
-        (
-            "5.3 Kaizen and continuous improvement",
-            "Employees and supervisors identify problems and implement incremental improvements in safety, quality, and workflow.",
-        ),
-        (
-            "5.4 Total Quality Management (TQM)",
-            "Quality is built across design, production, and service—not only at final inspection.",
-        ),
-        (
-            "5.5 Automation, robotics, CAD/CAM",
-            "Robots improve precision in welding and handling; CAD/CAM supports digital design and manufacturing planning.",
-        ),
-        (
-            "5.6 Supply chain and vendor management",
-            "Steel, tyres, electronics, batteries, and assemblies are sourced from a large vendor network with incoming quality checks.",
-        ),
-        (
-            "5.7 Safety and environmental management",
-            "Plants manage occupational safety, energy, emissions, wastewater, and statutory environmental compliance.",
-        ),
-        (
-            "5.8 Electric vehicle manufacturing",
-            "Adds high-voltage battery assembly, thermal management, power electronics, and strict electrical safety protocols.",
-        ),
-        (
-            "5.9 Quality inspection and testing",
-            "Includes body and paint checks, electrical tests, powertrain checks, brake/steering inspection, leak tests, and road tests as applicable.",
-        ),
+    mfg = [
+        ("5.1 Lean manufacturing", "Reduces waste; improves flow of materials and work."),
+        ("5.2 Just-in-Time (JIT)", "Supplies components when required on the production line."),
+        ("5.3 Kaizen", "Continuous incremental improvement by employees and supervisors."),
+        ("5.4 Total Quality Management", "Quality across design, production, and service—not only inspection."),
+        ("5.5 Automation and robotics", "Improves precision and repeatability in welding and assembly."),
+        ("5.6 CAD / CAM", "Digital design and manufacturing planning."),
+        ("5.7 Supply chain management", "Vendor quality, inventory, scheduling, and logistics."),
+        ("5.8 Safety and environment", "Occupational safety, emissions, waste, and compliance."),
+        ("5.9 EV manufacturing", "Battery packs, high-voltage safety, motors, and power electronics."),
+        ("5.10 Quality testing", "Body, paint, electrical, powertrain, brake, leak, and road tests."),
     ]
-    for title, text in sections_mfg:
-        add_heading(doc, title, 2)
-        add_body(doc, text)
+    for title, text in mfg:
+        add_h(doc, title, 2)
+        add_p(doc, text)
 
-    add_heading(doc, "6. Products Manufactured by Tata Motors", 1)
-    add_body(
+    doc.add_page_break()
+
+    # --- 6 Products ---
+    add_h(doc, "6. Products Manufactured by Tata Motors")
+    add_p(
         doc,
-        "Tata Motors manufactures a wide portfolio for personal mobility, logistics, and public transport. "
-        "Representative families are summarised below (model lists change with product lifecycle).",
+        "Tata Motors has developed a wide range of vehicles for individual customers, businesses, and "
+        "public transport operators.",
     )
-    prod_table = doc.add_table(rows=6, cols=3)
-    prod_table.style = "Table Grid"
-    hdr = prod_table.rows[0].cells
-    hdr[0].text = "Segment"
-    hdr[1].text = "Category"
-    hdr[2].text = "Examples"
-    data = [
-        ("Passenger", "Hatch / sedan", "Tiago, Altroz, Tigor"),
-        ("Passenger", "SUV / crossover", "Punch, Nexon, Harrier, Safari, Curvv"),
-        ("Commercial", "SCV / LCV / M&HCV", "Ace, Intra, Ultra, Prima, Signa"),
-        ("Commercial", "Buses & mobility", "Starbus, electric buses, staff carriers"),
-        ("Electric", "Passenger & CV EV", "Nexon EV, Tiago EV, Punch EV, Ace EV"),
-    ]
-    for i, row in enumerate(data, start=1):
-        for j, val in enumerate(row):
-            prod_table.rows[i].cells[j].text = val
-    shade_table_header(prod_table)
-
-    add_body(
+    add_product_block(
         doc,
-        "Tata Motors serves individual customers, businesses, logistics operators, and public transport "
-        "authorities. Passenger offerings span affordable hatchbacks to premium SUVs; commercial offerings span "
-        "mini-trucks to heavy haulage and electric buses; the EV line supports personal and fleet electrification.",
+        "6.1 Passenger cars and SUVs",
+        "product_passenger_suv.jpg",
+        "Designed for personal and family transport. Examples: Tiago, Altroz, Tigor, Punch, Nexon, "
+        "Harrier, Safari, and Curvv.",
     )
-    add_image(doc, "products_showcase.png", 6.4, "Figure 6: Key products with segment description (visual catalogue)")
-    add_image(doc, "vehicle_portfolio.png", 6.2, "Figure 7: Representative product families across segments")
-    add_image(doc, "ev_ecosystem.png", 5.8, "Figure 8: Electric mobility value chain")
-
-    add_heading(doc, "6.1 Research, Development and Electronics (ECE relevance)", 2)
-    add_body(
+    add_product_block(
         doc,
-        "Modern automobiles are complex electro-mechanical systems. Electronics and Communication "
-        "Engineering plays a critical role in automotive R&D and production quality.\n\n"
-        "Key electronic domains in Tata Motors vehicles include engine control units (ECU), body "
-        "control modules, infotainment and telematics, advanced driver assistance sensors, battery "
-        "management systems (BMS) in EVs, wiring harnesses, communication buses (CAN, LIN, Ethernet "
-        "in newer architectures), and over-the-air (OTA) software updates in connected cars.\n\n"
-        "Manufacturing and quality teams use electronic test equipment for functional verification, "
-        "diagnostics, and traceability. Diploma interns in electronics may observe PLC-based automation, "
-        "robotic cells, end-of-line electrical checks, and instrumentation in paint and assembly shops "
-        "during authorised plant visits.",
+        "6.2 Electric vehicles",
+        "product_ev.jpg",
+        "Battery-electric models such as Nexon EV, Tiago EV, Punch EV, and Tigor EV support lower emissions "
+        "and sustainable mobility.",
+    )
+    add_product_block(
+        doc,
+        "6.3 Commercial trucks",
+        "product_truck.jpg",
+        "Used for goods movement across industries. Examples include Prima, Signa, Ultra, and Intra families.",
+    )
+    add_product_block(
+        doc,
+        "6.4 Buses and passenger transport",
+        "product_bus.jpg",
+        "Buses for city, school, staff, and intercity transport, including electric bus solutions.",
+    )
+
+    add_h(doc, "6.5 Relevance for ECE internship", 2)
+    add_p(
+        doc,
+        "Electronics and Communication Engineering students may learn about wiring harnesses, ECU diagnostics, "
+        "earthing and safety checks, BMS basics on EV lines, PLC automation, and end-of-line electrical testing "
+        "during authorised plant training (e.g., Pune, Sanand, Jamshedpur).",
+    )
+
+    # --- 7 Challenges ---
+    add_h(doc, "7. Challenges and Future Opportunities")
+    add_pic(doc, "photo_future_mobility.jpg", 5.5)
+    add_bullets(
+        doc,
+        [
+            "Competition and pricing: balance features, affordability, and profitability.",
+            "Supply chain resilience: semiconductors, batteries, and critical components.",
+            "Quality and reliability: reduce defects, rework, and warranty costs.",
+            "Electrification: charging infrastructure, battery cost, and customer confidence.",
+            "Sustainability and compliance: safety and emission regulations.",
+            "Opportunities: R&D, digitalisation, energy efficiency, and battery recycling.",
+        ],
+    )
+
+    # --- 8 Methodology ---
+    add_h(doc, "8. Research Methodology")
+    add_p(
+        doc,
+        "Descriptive, document-based research using Tata Motors annual reports, investor presentations, "
+        "official website, and automotive industry publications.",
     )
     add_bullets(
         doc,
         [
-            "Embedded systems: microcontrollers in ECUs and BMS.",
-            "Sensors: speed, temperature, pressure, radar/camera for ADAS on higher trims.",
-            "Communication: in-vehicle networks linking sensors, displays, and control units.",
-            "Power electronics: inverters and converters in electric powertrains.",
-            "Quality electronics: test jigs, oscilloscopes, and automated diagnostic stations.",
+            "Secondary data: company reports, catalogues, government publications.",
+            "Primary data (if performed): authorised plant visit and supervised discussions.",
+            "Analysis: historical, descriptive, and thematic grouping.",
+            "Limitations: confidential plant data is not publicly available.",
         ],
     )
-    add_image(doc, "ece_automotive.png", 5.5, "Figure 9: Electronics integration in modern vehicles (ECE perspective)")
 
-    add_heading(doc, "6.2 Manufacturing Plants and Operations in India", 2)
-    add_body(
+    add_h(doc, "9. Conclusion")
+    add_p(
         doc,
-        "Tata Motors operates multiple manufacturing and assembly facilities in India. Major locations "
-        "include Pune (passenger vehicles), Jamshedpur and Lucknow (commercial vehicles), Sanand "
-        "(passenger and EV-related capacity), and Dharwad among others. Plants integrate stamping, "
-        "body shop, paint shop, engine or powertrain assembly (where applicable), final assembly, "
-        "and quality gates. Capacity and product mix are updated over time as new models launch.",
+        "Tata Motors is a leading Indian automotive company with strong commercial and passenger portfolios, "
+        "growing electric mobility, and global presence through JLR. Its manufacturing systems and electronics "
+        "integration make it a valuable organisation for diploma internship and industrial learning.",
     )
-    add_image(doc, "india_plants_map.png", 5.2, "Figure 10: Major Tata Motors locations in India (schematic)")
 
-    add_heading(doc, "6.3 Internship and learning opportunities (ECE)", 2)
-    add_body(
-        doc,
-        "Tata Motors runs structured student programmes (campus hiring, internships, graduate engineer trainees) "
-        "with exposure to manufacturing, quality, production, and engineering functions. Diploma interns in "
-        "electronics-related domains may observe trim-and-chassis fitment, electrical harness routing, earthing "
-        "and safety checks, ECU flashing, heating elements, connector quality, end-of-line electrical testing, and "
-        "cross-functional coordination with quality and supply chain—similar to industrial projects reported at "
-        "PV plants in Pune and manufacturing internships at Sanand.\n\n"
-        "Official portal: joinus.tatamotors.com (Student Programmes). Institutes typically coordinate industrial "
-        "visits and internships through the training and placement cell with company HR.",
-    )
+    add_h(doc, "References")
     add_bullets(
         doc,
         [
-            "Suggested internship focus for ECE: wiring harness safety, ECU diagnostics, BMS awareness (EV lines), PLC/automation in body shop.",
-            "Soft skills: safety culture, teamwork across departments, documentation and presentation of findings.",
-            "Career alignment: production engineering, quality, automotive electronics, and vehicle testing.",
+            "Tata Motors Integrated Annual Report 2024–25.",
+            "Tata Motors investor presentations and press releases (FY25).",
+            "https://www.tatamotors.com",
+            "https://joinus.tatamotors.com/student-programmes/",
         ],
     )
 
-    add_heading(doc, "7. Challenges and Future Opportunities", 1)
-    add_bullets(
-        doc,
-        [
-            "Competition and pricing pressure across CV and PV segments.",
-            "Supply chain resilience for semiconductors, batteries, and specialised components.",
-            "Quality and reliability expectations from customers and regulators.",
-            "Accelerating electrification, charging infrastructure, and battery cost reduction.",
-            "Sustainability, carbon footprint, and compliance with emission and safety norms.",
-            "Opportunities in connected vehicles, software-defined features, hydrogen/fuel-cell research, and export growth.",
-        ],
-    )
-
-    add_heading(doc, "8. Research Methodology", 1)
-    add_body(
-        doc,
-        "This report uses a descriptive, document-based research approach. Publicly available company "
-        "information and general automotive manufacturing knowledge are organised to explain Tata Motors' "
-        "development, segments, products, R&D areas, manufacturing methodologies, and challenges.",
-    )
-    add_bullets(
-        doc,
-        [
-            "Secondary data: Tata Motors website, integrated annual report FY2024–25, investor presentations, product catalogues, and reputable industry publications.",
-            "Primary data (if collected during internship): authorised plant visit notes, supervised discussions, and observation logs—include only with official permission.",
-            "Analysis: historical timeline, segment-wise description, and thematic grouping (quality, manufacturing, sustainability, electronics).",
-            "Verification: cross-check figures with source publication dates and financial year labels.",
-            "Limitations: confidential plant procedures and unreleased R&D details are not available in public sources.",
-        ],
-    )
-
-    add_heading(doc, "9. Conclusion", 1)
-    add_body(
-        doc,
-        "Tata Motors has grown from a locomotive and engineering company into a diversified automotive "
-        "group with leadership in Indian commercial vehicles, a strong passenger vehicle portfolio, "
-        "market-leading electric mobility initiatives, and a global premium business through Jaguar Land Rover. "
-        "Its manufacturing philosophy combines lean production, quality systems, automation, and supply chain "
-        "coordination. For diploma students, studying Tata Motors provides practical insight into how "
-        "large-scale manufacturing, electronics integration, and innovation align with national industrial "
-        "growth and sustainable mobility goals.",
-    )
-
-    add_heading(doc, "10. References", 1)
-    refs = [
-        "Tata Motors Limited, Integrated Annual Report 2024–25.",
-        "Tata Motors Limited, Q4 FY25 Investor Presentation and press releases.",
-        "Tata Motors Limited, Corporate website — www.tatamotors.com (company profile, products, sustainability).",
-        "Government of India, automotive industry reports and policy documents (for sector context).",
-        "Textbooks on automobile engineering and manufacturing technology (for general methodology terms).",
-    ]
-    for i, ref in enumerate(refs, 1):
-        p = doc.add_paragraph(f"[{i}] {ref}")
-        for run in p.runs:
-            set_run_font(run, size=10)
-
-    out_path = OUT / "TATA_Motors_Research_Report_Nachiket_L_Karoshi.docx"
+    path = OUT / "TATA_Motors_Diploma_Project.docx"
     OUT.mkdir(parents=True, exist_ok=True)
-    doc.save(out_path)
-    return out_path
+    doc.save(path)
+    return path
 
 
 class ReportPDF(FPDF):
     def header(self):
-        self.set_font("DejaVu", "B", 9)
-        self.set_text_color(0, 51, 102)
-        self.cell(0, 8, "Tata Motors | Company Research Report", align="C", new_x="LMARGIN", new_y="NEXT")
-        self.ln(1)
+        self.set_font("DejaVu", "B", 8)
+        self.set_text_color(31, 78, 121)
+        self.cell(0, 6, "TATA Motors | Company Research Report", align="L")
+        self.ln(8)
 
     def footer(self):
         self.set_y(-12)
+        self.set_draw_color(150, 40, 40)
+        self.line(10, self.get_y(), 200, self.get_y())
         self.set_font("DejaVu", "", 8)
-        self.set_text_color(100, 100, 100)
-        self.cell(0, 8, f"Page {self.page_no()}", align="C")
+        self.set_text_color(80, 80, 80)
+        self.cell(95, 8, "TATA Motors | Company Research Report")
+        self.cell(95, 8, f"Page {self.page_no()}", align="R")
 
 
-def pdf_add_section(pdf: ReportPDF, title: str, body: str, img: str | None = None):
+def pdf_block(pdf: ReportPDF, title: str, body: str):
+    if pdf.get_y() > 250:
+        pdf.add_page()
     pdf.set_x(pdf.l_margin)
-    pdf.set_font("DejaVu", "B", 12)
-    pdf.set_text_color(0, 51, 102)
-    pdf.multi_cell(pdf.epw, 7, title)
-    pdf.ln(2)
-    pdf.set_x(pdf.l_margin)
+    if title:
+        pdf.set_font("DejaVu", "B", 12)
+        pdf.set_text_color(0, 51, 102)
+        pdf.multi_cell(pdf.epw, 6, title)
+        pdf.ln(2)
     pdf.set_font("DejaVu", "", 10)
     pdf.set_text_color(30, 30, 30)
-    pdf.multi_cell(pdf.epw, 5.5, body)
-    pdf.ln(3)
-    if img and (IMG / img).exists():
-        w = min(170, pdf.epw)
-        if pdf.get_y() > 230:
-            pdf.add_page()
-        x = pdf.l_margin + (pdf.epw - w) / 2
-        pdf.image(str(IMG / img), x=x, w=w)
-        pdf.ln(6)
-        pdf.set_x(pdf.l_margin)
+    pdf.multi_cell(pdf.epw, 5.2, body)
+    pdf.ln(4)
+
+
+def pdf_image(pdf: ReportPDF, filename: str, w: float = 120):
+    path = IMG / filename
+    if not path.exists():
+        return
+    if pdf.get_y() > 200:
+        pdf.add_page()
+    x = pdf.l_margin + (pdf.epw - w) / 2
+    pdf.image(str(path), x=x, w=w)
+    pdf.ln(8)
+    pdf.set_x(pdf.l_margin)
 
 
 def build_pdf() -> Path:
     pdf = ReportPDF()
-    pdf.set_auto_page_break(auto=True, margin=14)
+    pdf.set_auto_page_break(auto=True, margin=18)
     pdf.add_font("DejaVu", "", f"{FONT_DIR}/DejaVuSans.ttf")
     pdf.add_font("DejaVu", "B", f"{FONT_DIR}/DejaVuSans-Bold.ttf")
     pdf.add_page()
 
-    if (IMG / "cover_premium.png").exists():
-        pdf.image(str(IMG / "cover_premium.png"), x=8, y=15, w=194)
-        pdf.set_y(88)
-    if (IMG / "tata_logo_brand.png").exists():
-        pdf.image(str(IMG / "tata_logo_brand.png"), x=70, w=70)
-        pdf.ln(8)
-
-    pdf.set_x(pdf.l_margin)
-    pdf.set_font("DejaVu", "B", 14)
-    pdf.multi_cell(pdf.epw, 8, "DIPLOMA FINAL-YEAR INTERNSHIP\nCOMPANY RESEARCH REPORT", align="C")
-    pdf.set_font("DejaVu", "B", 13)
-    pdf.multi_cell(pdf.epw, 7, "TATA MOTORS LIMITED", align="C")
+    pdf.set_font("DejaVu", "B", 12)
+    pdf.multi_cell(pdf.epw, 7, "DIPLOMA FINAL-YEAR INTERNSHIP\nCOMPANY RESEARCH REPORT", align="C")
+    pdf.ln(2)
+    pdf.set_font("DejaVu", "B", 16)
+    pdf.multi_cell(pdf.epw, 8, "TATA MOTORS LIMITED", align="C")
     pdf.set_font("DejaVu", "", 10)
     pdf.multi_cell(
         pdf.epw,
-        5.5,
+        5,
         "A Study of Company Development, Automotive Products,\n"
         "Research and Development, and Manufacturing Methodologies",
         align="C",
     )
-    pdf.ln(3)
+    pdf.ln(4)
+    pdf_image(pdf, "tata_motors_logo.png", w=35)
     cover = (
         f"Submitted by: {STUDENT['name']}\n"
-        f"Diploma / Department: {STUDENT['department']}\n"
+        f"Department: {STUDENT['department']}\n"
         f"Institution: {STUDENT['institution']}\n"
-        f"Internship organisation: {STUDENT['internship_org']}\n"
+        f"Internship: {STUDENT['internship_org']}\n"
         f"Academic year: {STUDENT['academic_year']}\n"
-        f"Submission date: {STUDENT['submission_date']}\n\n"
-        "Submitted in partial fulfilment of the requirements for the Diploma final-year internship."
+        f"Date: {STUDENT['submission_date']}"
     )
-    pdf.set_x(pdf.l_margin)
-    pdf.multi_cell(pdf.epw, 6, cover)
+    pdf.multi_cell(pdf.epw, 5.5, cover)
     pdf.add_page()
 
     sections = [
-        (
-            "1. Introduction",
-            "The automobile industry is one of the most important sectors of the Indian economy. It "
-            "contributes to industrial development, employment, innovation, infrastructure, and trade. "
-            "Tata Motors is a major manufacturer in passenger vehicles, commercial vehicles, electric "
-            "mobility, and engineering. Established in 1945 as TELCO, it expanded from locomotives to "
-            "cars, SUVs, trucks, buses, and EVs. This report studies background, segments, products, "
-            "manufacturing, R&D, and challenges.",
-            None,
-        ),
-        (
-            "2. About Tata Motors",
-            "Tata Motors is part of the Tata Group. It designs, develops, manufactures, markets, and "
-            "services vehicles for individuals, fleets, logistics, and public transport. It invests in "
-            "R&D, electrification, connected technology, safety, and advanced manufacturing.",
-            None,
-        ),
-        (
-            "3. Company Overview",
-            "Business segments (FY25): Tata Commercial Vehicles, Tata Passenger Vehicles, electric "
-            "mobility, and Jaguar Land Rover. From October 2025, CV and PV were demerged into focused "
-            "listed companies (NCLT-approved). CV includes trucks, buses, Ace/Intra; PV includes "
-            "Tiago, Nexon, Harrier; EV includes Nexon EV and e-buses; JLR is the global luxury business.",
-            "business_segments.png",
-        ),
-        ("", "", "product_segments.png"),
-        ("", "", "market_highlights.png"),
-        (
-            "4. History and Development of Tata Motors",
-            "Covers 1945 TELCO foundation, 1954 CV entry, 1991 Sierra, 1998 Indica, 2004 Daewoo, 2005 Ace, "
-            "2008 JLR, 2016 Tiago/IMPACT, 2019 Nexon EV/ZIPTRON, 2023 Sanand capacity, 2024 acti.ev, "
-            "2025 Curvv and business demerger. See detailed timeline figures.",
-            "history_timeline.png",
-        ),
-        ("", "", "history_detailed.png"),
-        (
-            "5. Manufacturing Methodology Used by Tata Motors",
-            "Lean manufacturing, Just-in-Time, Kaizen, TQM, automation and robotics, CAD/CAM, supply "
-            "chain management, environmental and safety management, EV high-voltage processes, and "
-            "end-of-line quality testing including electrical and road tests.",
-            "manufacturing_flow.png",
-        ),
-        (
-            "Executive Summary / Internship",
-            "Tata Motors is a leading choice for diploma internships in ECE: plant exposure, harness/ECU work, "
-            "safety culture, and student programmes (joinus.tatamotors.com). FY25 milestones: 6M PV sales, 200K EV sales.",
-            "internship_value.png",
-        ),
-        (
-            "6. Products Manufactured by Tata Motors",
-            "Passenger: Tiago, Altroz, Tigor, Punch, Nexon, Harrier, Safari, Curvv. Commercial: Ace, "
-            "Intra, Yodha, Ultra, Signa, Prima, Starbus. Electric: Nexon EV, Tiago EV, Punch EV, Ace EV, "
-            "electric buses. Products serve personal mobility, goods transport, and public transport.",
-            "products_showcase.png",
-        ),
-        ("", "", "vehicle_portfolio.png"),
-        ("", "", "ev_ecosystem.png"),
-        (
-            "6.1 R&D and Electronics (ECE)",
-            "Modern vehicles use ECUs, BCM, BMS (EV), sensors, infotainment, telematics, CAN/LIN buses, "
-            "and OTA updates. ECE students study embedded systems, power electronics, and production testing.",
-            "ece_automotive.png",
-        ),
-        (
-            "6.2 Plants in India",
-            "Major plants: Pune (PV), Jamshedpur and Lucknow (CV), Sanand (PV/EV), Dharwad (CV). "
-            "Processes include stamping, body shop, paint, assembly, and quality gates.",
-            "india_plants_map.png",
-        ),
-        (
-            "7. Challenges and Future Opportunities",
-            "Challenges: competition, pricing, supply chain, quality, electrification, regulations. "
-            "Opportunities: R&D, digitalisation, energy efficiency, battery recycling, connected vehicles.",
-            None,
-        ),
-        (
-            "8. Research Methodology",
-            "Descriptive document-based research using annual reports, investor presentations, product "
-            "catalogues, and authorised internship observations. Limitations: confidential plant data "
-            "is not publicly available.",
-            None,
-        ),
-        (
-            "9. Conclusion",
-            "Tata Motors is a diversified automotive leader in India with strong CV and PV portfolios, "
-            "EV leadership, and global presence through JLR. Its manufacturing and electronics integration "
-            "offer valuable learning for diploma internship and industrial visits.",
-            None,
-        ),
+        ("1. Introduction", INTRO_TEXT, "tata_motors_logo.png", 28),
+        ("2. About Tata Motors", ABOUT_TEXT, "photo_head_office.jpg", 150),
+        ("3. Company Overview", OVERVIEW_TEXT, "photo_overview.jpg", 150),
+        ("4. History and Development", HISTORY_TEXT, "photo_history_collage.jpg", 140),
+        ("", "", "photo_history_indica.jpg", 140),
+        ("5. Manufacturing Methodology", MFG_TEXT, "photo_manufacturing_robots.jpg", 85),
+        ("", "", "photo_manufacturing_workers.jpg", 85),
+        ("6. Products Manufactured", PRODUCTS_INTRO, None, 0),
+        ("6.1 Passenger SUVs", PRODUCT_1, "product_passenger_suv.jpg", 70),
+        ("6.2 Electric vehicles", PRODUCT_2, "product_ev.jpg", 70),
+        ("6.3 Commercial trucks", PRODUCT_3, "product_truck.jpg", 70),
+        ("6.4 Buses", PRODUCT_4, "product_bus.jpg", 70),
+        ("7. Challenges & Opportunities", CHALLENGES_TEXT, "photo_future_mobility.jpg", 130),
+        ("8. Research Methodology", METHOD_TEXT, None, 0),
+        ("9. Conclusion", CONCLUSION_TEXT, None, 0),
     ]
-    for title, body, image in sections:
+    for title, body, img, w in sections:
         if title or body:
-            pdf_add_section(pdf, title, body, None)
-        if image:
-            w = min(170, pdf.epw)
-            if pdf.get_y() > 230:
-                pdf.add_page()
-            x = pdf.l_margin + (pdf.epw - w) / 2
-            pdf.image(str(IMG / image), x=x, w=w)
-            pdf.ln(6)
-            pdf.set_x(pdf.l_margin)
+            pdf_block(pdf, title, body)
+        if img and w:
+            pdf_image(pdf, img, w=w)
 
-    pdf_add_section(
-        pdf,
-        "10. References",
-        "[1] Tata Motors Integrated Annual Report 2024-25.\n"
-        "[2] Tata Motors Q4 FY25 investor presentation.\n"
-        "[3] www.tatamotors.com\n"
-        "[4] Government of India automotive sector publications.",
-        None,
-    )
-
-    out_path = OUT / "TATA_Motors_Research_Report_Nachiket_L_Karoshi.pdf"
-    pdf.output(str(out_path))
-    return out_path
+    path = OUT / "TATA_Motors_Diploma_Project.pdf"
+    pdf.output(str(path))
+    return path
 
 
-def package_downloads(docx: Path, pdf: Path) -> Path:
-    import shutil
-    import zipfile
+INTRO_TEXT = (
+    "The automobile industry is vital to India's economy. Tata Motors (founded 1945 as TELCO) "
+    "manufactures passenger vehicles, commercial vehicles, and electric mobility solutions. "
+    "This report studies company development, products, R&D, and manufacturing methodologies."
+)
+ABOUT_TEXT = (
+    "Tata Motors is part of the Tata Group and serves consumers, fleets, and public transport. "
+    "It invests in electrification, connected technology, safety, and advanced manufacturing."
+)
+OVERVIEW_TEXT = (
+    "Main segments: Passenger Vehicles (cars, SUVs, EVs) and Commercial Vehicles (trucks, buses, LCVs). "
+    "The company competes on quality, safety, technology, and after-sales service."
+)
+HISTORY_TEXT = (
+    "1945 TELCO; 1950s CV with Daimler-Benz; 1998 Indica; 2004 Daewoo; 2008 JLR; modern SUVs and EV leadership."
+)
+MFG_TEXT = (
+    "Lean, JIT, Kaizen, TQM, automation, CAD/CAM, supply chain control, environmental management, "
+    "EV battery safety, and end-of-line testing."
+)
+PRODUCTS_INTRO = "Wide portfolio for personal mobility, logistics, and public transport."
+PRODUCT_1 = "Tiago, Altroz, Tigor, Punch, Nexon, Harrier, Safari, Curvv."
+PRODUCT_2 = "Nexon EV, Tiago EV, Punch EV, Tigor EV."
+PRODUCT_3 = "Prima, Signa, Ultra, Ace, Intra."
+PRODUCT_4 = "Starbus and electric city buses."
+CHALLENGES_TEXT = (
+    "Competition, supply chain, quality, electrification, and regulation—balanced by R&D and digitalisation."
+)
+METHOD_TEXT = "Document-based research from official Tata Motors publications and industry sources."
+CONCLUSION_TEXT = (
+    "Tata Motors is a strong choice for diploma internship with exposure to large-scale automotive manufacturing."
+)
 
-    aliases = [
-        ("TATA_Motors_Diploma_Project.docx", docx),
-        ("TATA_Motors_Diploma_Project.pdf", pdf),
-    ]
-    for name, src in aliases:
-        shutil.copy2(src, OUT / name)
 
+def package(docx: Path, pdf: Path) -> Path:
     zip_path = OUT / "TATA_Motors_Diploma_Project_DOWNLOAD.zip"
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for name, src in aliases:
-            zf.write(src, arcname=name)
+        zf.write(docx, arcname=docx.name)
+        zf.write(pdf, arcname=pdf.name)
     return zip_path
 
 
 def main():
-    OUT.mkdir(parents=True, exist_ok=True)
-    tata_logo()
-    cover_premium()
-    detailed_history()
-    product_showcase()
-    internship_infographic()
     docx = build_docx()
     pdf = build_pdf()
-    zip_path = package_downloads(docx, pdf)
-    print(f"DOCX: {docx}")
-    print(f"PDF:  {pdf}")
-    print(f"ZIP:  {zip_path}")
+    zip_path = package(docx, pdf)
+    print(docx)
+    print(pdf)
+    print(zip_path)
 
 
 if __name__ == "__main__":
