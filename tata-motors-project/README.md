@@ -16,6 +16,8 @@ cd tata-motors-project
 python3 generate_tata_report.py
 ```
 
+PDF is generated from the Word file using LibreOffice so **PDF matches DOCX** (same pages, text, and images). Requires `libreoffice-writer-nogui` on Linux.
+
 Edit student details at the top of `generate_tata_report.py` (`STUDENT` dictionary).
 
 ## What was improved vs. your draft

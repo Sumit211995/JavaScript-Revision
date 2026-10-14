@@ -13,7 +13,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
-from fpdf import FPDF
+import subprocess
 
 from report_content import (
     ABOUT,
@@ -52,8 +52,6 @@ from report_content import (
 ROOT = Path(__file__).resolve().parent
 IMG = ROOT / "images"
 OUT = ROOT / "output"
-FONT_DIR = "/usr/share/fonts/truetype/dejavu"
-
 STUDENT = {
     "name": "Nachiket L Karoshi",
     "department": "Diploma in Electronics and Communication Engineering",
@@ -402,131 +400,25 @@ def build_docx() -> Path:
     return path
 
 
-class ReportPDF(FPDF):
-    def header(self):
-        self.set_font("DejaVu", "B", 8)
-        self.set_text_color(31, 78, 121)
-        self.cell(0, 6, "TATA Motors | Company Research Report", align="L")
-        self.ln(8)
-
-    def footer(self):
-        self.set_y(-12)
-        self.set_draw_color(150, 40, 40)
-        self.line(10, self.get_y(), 200, self.get_y())
-        self.set_font("DejaVu", "", 8)
-        self.set_text_color(80, 80, 80)
-        self.cell(95, 8, "TATA Motors | Company Research Report")
-        self.cell(95, 8, f"Page {self.page_no()}", align="R")
-
-
-def pdf_block(pdf: ReportPDF, title: str, body: str):
-    if pdf.get_y() > 248:
-        pdf.add_page()
-    pdf.set_x(pdf.l_margin)
-    if title:
-        pdf.set_font("DejaVu", "B", 11)
-        pdf.set_text_color(0, 51, 102)
-        pdf.multi_cell(pdf.epw, 6, title)
-        pdf.ln(1)
-    if body:
-        pdf.set_font("DejaVu", "", 9.5)
-        pdf.set_text_color(30, 30, 30)
-        pdf.multi_cell(pdf.epw, 4.8, body)
-        pdf.ln(3)
-
-
-def pdf_image(pdf: ReportPDF, filename: str, w: float = 110):
-    path = IMG / filename
-    if not path.exists():
-        return
-    if pdf.get_y() + w * 0.45 > 270:
-        pdf.add_page()
-    x = pdf.l_margin + (pdf.epw - w) / 2
-    pdf.image(str(path), x=x, w=w)
-    pdf.ln(6)
-    pdf.set_x(pdf.l_margin)
-
-
-def build_pdf() -> Path:
-    pdf = ReportPDF()
-    pdf.set_auto_page_break(auto=True, margin=16)
-    pdf.add_font("DejaVu", "", f"{FONT_DIR}/DejaVuSans.ttf")
-    pdf.add_font("DejaVu", "B", f"{FONT_DIR}/DejaVuSans-Bold.ttf")
-    pdf.add_page()
-    pdf.set_font("DejaVu", "B", 12)
-    pdf.multi_cell(pdf.epw, 6, "DIPLOMA FINAL-YEAR INTERNSHIP\nCOMPANY RESEARCH REPORT", align="C")
-    pdf.set_font("DejaVu", "B", 15)
-    pdf.multi_cell(pdf.epw, 7, "TATA MOTORS LIMITED", align="C")
-    pdf_image(pdf, "tata_motors_logo.png", w=32)
-    pdf.set_font("DejaVu", "", 9)
-    pdf.multi_cell(
-        pdf.epw,
-        4.8,
-        f"Submitted by: {STUDENT['name']}\n{STUDENT['department']}\n{STUDENT['institution']}\n"
-        f"Internship: {STUDENT['internship_org']}\nAcademic year: {STUDENT['academic_year']}\n"
-        f"Date: {STUDENT['submission_date']}",
-        align="C",
-    )
-    pdf.add_page()
-
-    blocks: list[tuple[str, str, str | None, float]] = [
-        ("Executive Summary", EXECUTIVE_SUMMARY, "market_highlights.png", 115),
-        ("1. Introduction", INTRO, None, 0),
-        ("2. About Tata Motors", ABOUT, "photo_head_office.jpg", 125),
-        ("3. Company Overview", OVERVIEW, "photo_overview.jpg", 125),
-        ("3.1 Commercial Vehicles", SEGMENT_CV_TEXT + "\n" + "\n".join(f"- {x}" for x in SEGMENT_CV), "business_segments.png", 115),
-        ("3.2 Passenger Vehicles", SEGMENT_PV_TEXT + "\n" + "\n".join(f"- {x}" for x in SEGMENT_PV), None, 0),
-        ("3.3 Electric Mobility", SEGMENT_EV_TEXT + "\n" + "\n".join(f"- {x}" for x in SEGMENT_EV), "ev_ecosystem.png", 110),
-        ("3.4 Jaguar Land Rover", SEGMENT_JLR, None, 0),
-        ("3.5 Achievements FY25", ACHIEVEMENTS_FY25, None, 0),
-        ("3.6 R&D and Innovation", RD_INNOVATION, None, 0),
-        ("3.7 Sustainability", SUSTAINABILITY, None, 0),
-        ("3.8 Strengths", "\n".join(f"- {s}" for s in STRENGTHS), None, 0),
+def build_pdf_from_docx(docx_path: Path) -> Path:
+    """Export PDF from DOCX so PDF matches Word layout and content exactly."""
+    pdf_path = docx_path.with_suffix(".pdf")
+    cmd = [
+        "libreoffice",
+        "--headless",
+        "--convert-to",
+        "pdf",
+        "--outdir",
+        str(docx_path.parent),
+        str(docx_path),
     ]
-    for title, body, img, w in blocks:
-        pdf_block(pdf, title, body)
-        if img and w:
-            pdf_image(pdf, img, w)
-
-    pdf.add_page()
-    pdf_block(pdf, "4. History and Development of Tata Motors", "")
-    pdf_image(pdf, "photo_history_collage.jpg", 120)
-    pdf_image(pdf, "photo_history_indica.jpg", 120)
-    pdf_image(pdf, "history_timeline.png", 115)
-    for title, body in HISTORY.items():
-        pdf_block(pdf, title, body)
-
-    pdf.add_page()
-    pdf_block(pdf, "5. Manufacturing Methodology Used by Tata Motors", MFG_INTRO)
-    pdf_image(pdf, "manufacturing_flow.png", 110)
-    pdf_image(pdf, "photo_manufacturing_robots.jpg", 78)
-    pdf_image(pdf, "photo_manufacturing_workers.jpg", 78)
-    for title, lead, bullets in MFG_SECTIONS:
-        extra = ("\n".join(f"- {b}" for b in bullets)) if bullets else ""
-        pdf_block(pdf, title, lead + ("\n" + extra if extra else ""))
-
-    pdf.add_page()
-    pdf_block(pdf, "6. Products Manufactured by Tata Motors", PRODUCTS_INTRO)
-    for title, image, body in PRODUCT_BLOCKS:
-        pdf_block(pdf, title, body)
-        pdf_image(pdf, image, 65)
-
-    pdf_block(pdf, "6.5 ECE relevance", ECE + "\n" + "\n".join(f"- {b}" for b in ECE_BULLETS))
-    pdf_image(pdf, "ece_automotive.png", 105)
-    pdf_block(pdf, "6.6 Plants in India", PLANTS)
-    pdf_image(pdf, "india_plants_map.png", 100)
-    pdf_block(pdf, "6.7 Internship programmes", INTERNSHIP_PROGRAMMES)
-    pdf_image(pdf, "internship_value.png", 105)
-    pdf_block(pdf, "7. Challenges and Future Opportunities", CHALLENGES_INTRO)
-    pdf_image(pdf, "photo_future_mobility.jpg", 120)
-    pdf_block(pdf, "", "\n".join(f"- {c}" for c in CHALLENGES))
-    pdf_block(pdf, "8. Research Methodology", METHODOLOGY + "\n" + "\n".join(f"- {m}" for m in METHODOLOGY_BULLETS))
-    pdf_block(pdf, "9. Conclusion", CONCLUSION)
-    pdf_block(pdf, "References", "\n".join(f"[{i}] {r}" for i, r in enumerate(REFERENCES, 1)))
-
-    path = OUT / "TATA_Motors_Diploma_Project.pdf"
-    pdf.output(str(path))
-    return path
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0 or not pdf_path.exists():
+        raise RuntimeError(
+            "PDF export failed. Install LibreOffice (libreoffice-writer-nogui).\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+    return pdf_path
 
 
 def package(docx: Path, pdf: Path) -> Path:
@@ -539,7 +431,7 @@ def package(docx: Path, pdf: Path) -> Path:
 
 def main():
     docx = build_docx()
-    pdf = build_pdf()
+    pdf = build_pdf_from_docx(docx)
     zip_path = package(docx, pdf)
     print(docx)
     print(pdf)
